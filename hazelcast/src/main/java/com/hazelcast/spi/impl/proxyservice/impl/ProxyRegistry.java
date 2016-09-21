@@ -192,9 +192,12 @@ public final class ProxyRegistry {
         }
 
         InternalEventService eventService = proxyService.nodeEngine.getEventService();
-        ProxyEventProcessor callback = new ProxyEventProcessor(proxyService.listeners.values(), CREATED, serviceName,
-                name, proxy);
-        eventService.executeEventCallback(callback);
+        boolean hasListeners = !proxyService.listeners.isEmpty();
+        if (hasListeners) {
+            ProxyEventProcessor callback = new ProxyEventProcessor(proxyService.listeners.values(), CREATED, serviceName,
+                    name, proxy);
+            eventService.executeEventCallback(callback);
+        }
         if (publishEvent) {
             publish(new DistributedObjectEventPacket(CREATED, serviceName, name));
         }
@@ -223,9 +226,12 @@ public final class ProxyRegistry {
             return;
         }
         InternalEventService eventService = proxyService.nodeEngine.getEventService();
-        ProxyEventProcessor callback = new ProxyEventProcessor(proxyService.listeners.values(), DESTROYED, serviceName,
-                name, proxy);
-        eventService.executeEventCallback(callback);
+        boolean hasListeners = !proxyService.listeners.isEmpty();
+        if (hasListeners) {
+            ProxyEventProcessor callback = new ProxyEventProcessor(proxyService.listeners.values(), DESTROYED, serviceName,
+                    name, proxy);
+            eventService.executeEventCallback(callback);
+        }
         if (publishEvent) {
             publish(new DistributedObjectEventPacket(DESTROYED, serviceName, name));
         }
