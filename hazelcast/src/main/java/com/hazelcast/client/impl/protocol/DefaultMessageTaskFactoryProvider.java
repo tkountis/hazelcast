@@ -12,7 +12,7 @@ import com.hazelcast.client.impl.protocol.task.map.MapAggregateWithPredicateMess
 import com.hazelcast.client.impl.protocol.task.map.MapProjectionMessageTask;
 import com.hazelcast.client.impl.protocol.task.map.MapProjectionWithPredicateMessageTask;
 import com.hazelcast.client.impl.protocol.task.map.Pre38MapAddNearCacheEntryListenerMessageTask;
-import com.hazelcast.client.impl.protocol.task.scheduledexecutor.ScheduledExecutorGetAllScheduledMessageTask;
+//import com.hazelcast.client.impl.protocol.task.scheduledexecutor.ScheduledExecutorGetAllScheduledMessageTask;
 import com.hazelcast.client.impl.protocol.task.scheduledexecutor.ScheduledExecutorShutdownMessageTask;
 import com.hazelcast.client.impl.protocol.task.scheduledexecutor.ScheduledExecutorSubmitToAddressMessageTask;
 import com.hazelcast.client.impl.protocol.task.scheduledexecutor.ScheduledExecutorSubmitToPartitionMessageTask;
@@ -1800,11 +1800,11 @@ public class DefaultMessageTaskFactoryProvider implements MessageTaskFactoryProv
                 return new ScheduledExecutorTaskGetResultMessageTask(clientMessage, node, connection);
             }
         };
-        factories[com.hazelcast.client.impl.protocol.codec.ScheduledExecutorGetAllScheduledFuturesCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
-            public MessageTask create(ClientMessage clientMessage, Connection connection) {
-                return new ScheduledExecutorGetAllScheduledMessageTask(clientMessage, node, connection);
-            }
-        };
+//        factories[com.hazelcast.client.impl.protocol.codec.ScheduledExecutorGetAllScheduledFuturesCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
+//            public MessageTask create(ClientMessage clientMessage, Connection connection) {
+//                return new ScheduledExecutorGetAllScheduledMessageTask(clientMessage, node, connection);
+//            }
+//        };
         factories[com.hazelcast.client.impl.protocol.codec.ScheduledExecutorIsCancelledCodec.RequestParameters.TYPE.id()] = new MessageTaskFactory() {
             public MessageTask create(ClientMessage clientMessage, Connection connection) {
                 return new ScheduledExecutorTaskIsCancelledMessageTask(clientMessage, node, connection);
