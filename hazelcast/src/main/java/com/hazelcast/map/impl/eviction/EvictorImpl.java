@@ -17,11 +17,14 @@
 package com.hazelcast.map.impl.eviction;
 
 import com.hazelcast.core.EntryView;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import com.hazelcast.map.eviction.MapEvictionPolicy;
 import com.hazelcast.map.impl.record.Record;
 import com.hazelcast.map.impl.recordstore.LazyEntryViewFromRecord;
 import com.hazelcast.map.impl.recordstore.RecordStore;
 import com.hazelcast.map.impl.recordstore.Storage;
+import com.hazelcast.memory.MemorySize;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.spi.partition.IPartition;
 import com.hazelcast.spi.partition.IPartitionService;
@@ -34,25 +37,34 @@ import static com.hazelcast.util.Preconditions.checkNotNull;
  */
 public class EvictorImpl implements Evictor {
 
+    private final ILogger logger;
+    protected final int maxEvictionsPerCycle;
     protected final EvictionChecker evictionChecker;
     protected final IPartitionService partitionService;
     protected final MapEvictionPolicy mapEvictionPolicy;
 
-    public EvictorImpl(MapEvictionPolicy mapEvictionPolicy,
+    public EvictorImpl(MapEvictionPolicy mapEvictionPolicy, int maxEvictionsPerCycle,
                        EvictionChecker evictionChecker, IPartitionService partitionService) {
         this.evictionChecker = checkNotNull(evictionChecker);
         this.partitionService = checkNotNull(partitionService);
         this.mapEvictionPolicy = checkNotNull(mapEvictionPolicy);
+        this.maxEvictionsPerCycle = maxEvictionsPerCycle;
+        this.logger = Logger.getLogger(EvictorImpl.class);
     }
 
     @Override
     public void evict(RecordStore recordStore, Data excludedKey) {
-        EntryView evictableEntry = selectEvictableEntry(recordStore, excludedKey);
-        if (evictableEntry == null) {
-            return;
-        }
+        EntryView evictableEntry;
+        int maxEvictions = maxEvictionsPerCycle;
+        logger.info("Evicting  when numOfRecords: " + recordStore.size() + " memSize:"
+                + MemorySize.toPrettyString(recordStore.getStorage().getEntryCostEstimator().getEstimate()));
 
-        evictEntry(recordStore, evictableEntry);
+        while (recordStore.shouldEvict()
+                && (evictableEntry = selectEvictableEntry(recordStore, excludedKey)) != null
+                && maxEvictions-- > 0) {
+            logger.info("\t" + maxEvictions);
+            evictEntry(recordStore, evictableEntry);
+        }
     }
 
     private EntryView selectEvictableEntry(RecordStore recordStore, Data excludedKey) {

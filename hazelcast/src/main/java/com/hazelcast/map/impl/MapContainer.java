@@ -40,6 +40,7 @@ import com.hazelcast.query.impl.QueryableEntry;
 import com.hazelcast.query.impl.getters.Extractors;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.partition.IPartitionService;
+import com.hazelcast.spi.properties.GroupProperty;
 import com.hazelcast.spi.serialization.SerializationService;
 import com.hazelcast.util.ConstructorFunction;
 import com.hazelcast.util.ExceptionUtil;
@@ -60,6 +61,7 @@ import static java.lang.System.getProperty;
  */
 public class MapContainer {
 
+    protected final int maxEvictionsPerCycle;
     protected final String name;
     protected final String quorumName;
     protected final MapServiceContext mapServiceContext;
@@ -110,6 +112,7 @@ public class MapContainer {
         this.indexes = new Indexes((InternalSerializationService) serializationService, extractors);
         this.mapStoreContext = createMapStoreContext(this);
         this.mapStoreContext.start();
+        this.maxEvictionsPerCycle = nodeEngine.getProperties().getInteger(GroupProperty.MAX_EXPLICIT_EVICTIONS);
         initEvictor();
     }
 
@@ -122,7 +125,7 @@ public class MapContainer {
             MemoryInfoAccessor memoryInfoAccessor = getMemoryInfoAccessor();
             EvictionChecker evictionChecker = new EvictionChecker(memoryInfoAccessor, mapServiceContext);
             IPartitionService partitionService = mapServiceContext.getNodeEngine().getPartitionService();
-            evictor = new EvictorImpl(mapEvictionPolicy, evictionChecker, partitionService);
+            evictor = new EvictorImpl(mapEvictionPolicy, maxEvictionsPerCycle, evictionChecker, partitionService);
         }
     }
 

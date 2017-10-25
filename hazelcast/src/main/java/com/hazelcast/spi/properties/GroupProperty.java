@@ -709,6 +709,9 @@ public final class GroupProperty {
     public static final HazelcastProperty INIT_CLUSTER_VERSION
             = new HazelcastProperty("hazelcast.init.cluster.version");
 
+    public static final HazelcastProperty MAX_EXPLICIT_EVICTIONS
+            = new HazelcastProperty("hazelcast.evictor.max.evictions.per.cycle", 100);
+
     private GroupProperty() {
     }
 }
