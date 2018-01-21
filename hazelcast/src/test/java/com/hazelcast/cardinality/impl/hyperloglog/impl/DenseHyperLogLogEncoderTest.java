@@ -20,9 +20,12 @@ import com.hazelcast.test.HazelcastParallelClassRunner;
 import com.hazelcast.test.RequireAssertEnabled;
 import com.hazelcast.test.annotation.ParallelTest;
 import com.hazelcast.test.annotation.QuickTest;
+import com.hazelcast.util.HashUtil;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
+
+import java.nio.ByteBuffer;
 
 import static org.junit.Assert.assertEquals;
 
@@ -52,6 +55,32 @@ public class DenseHyperLogLogEncoderTest extends HyperLogLogEncoderAbstractTest 
 
         encoder.add(5);
     }
+
+    @Test
+    public void me() {
+        SparseHyperLogLogEncoder sparse = new SparseHyperLogLogEncoder(14, 25);
+        DenseHyperLogLogEncoder dense = new DenseHyperLogLogEncoder(14);
+
+        ByteBuffer bb = ByteBuffer.allocate(4);
+        for (int i = 0; i < 1000; i++) {
+            bb.clear();
+            bb.putInt(i);
+
+            long hash = HashUtil.MurmurHash3_x64_64(bb.array(), 0, bb.array().length);
+            sparse.add(hash);
+            sparse.asDense();
+            dense.add(hash);
+            System.out.println("-------------------------------");
+        }
+
+//        System.out.println("-------------------------------");
+//        System.out.println("Sparse: " + sparse.estimate());
+//        System.out.println("Denses: " + sparse.asDense().estimate() + " vs " + dense.estimate());
+//        System.out.println("Converted: " + Arrays.toString(((DenseHyperLogLogEncoder) sparse.asDense()).register));
+//        System.out.println(" Original: " + Arrays.toString(dense.register));
+//        assertArrayEquals(((DenseHyperLogLogEncoder) sparse.asDense()).register, dense.register);
+    }
+
 
     @Test
     public void testGetMemoryFootprint() {

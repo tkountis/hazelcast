@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 
+import static com.hazelcast.cardinality.impl.hyperloglog.impl.HyperLogLogEncoding.SPARSE;
+
 /**
  * 1. http://algo.inria.fr/flajolet/Publications/FlFuGaMe07.pdf
  * 2. http://static.googleusercontent.com/media/research.google.com/en//pubs/archive/40671.pdf
@@ -34,7 +36,7 @@ import java.util.TreeMap;
 public class DenseHyperLogLogEncoder implements HyperLogLogEncoder {
 
     private int p;
-    private byte[] register;
+    public byte[] register;
     private transient int numOfEmptyRegs;
     private transient double[] invPowLookup;
     private transient int m;
@@ -65,7 +67,7 @@ public class DenseHyperLogLogEncoder implements HyperLogLogEncoder {
     public boolean add(long hash) {
         final int index = (int) hash & (register.length - 1);
         final int value = Long.numberOfTrailingZeros((hash >>> p) | pFenseMask) + 1;
-
+//        System.out.println("Dense bin: " + Long.toBinaryString(hash) + " index: " + index + " for hash: " + hash + " value: " + value);
         assert index < register.length;
         assert value <= (1 << 8) - 1;
         assert value <= 64 - p;
@@ -84,19 +86,23 @@ public class DenseHyperLogLogEncoder implements HyperLogLogEncoder {
         return applyRangeCorrection(raw);
     }
 
+    int count = 20;
     @Override
     public HyperLogLogEncoder merge(HyperLogLogEncoder encoder) {
         DenseHyperLogLogEncoder otherDense;
-        if (encoder instanceof SparseHyperLogLogEncoder) {
+        if (SPARSE.equals(encoder.getEncodingType())) {
             otherDense = (DenseHyperLogLogEncoder) ((SparseHyperLogLogEncoder) encoder).asDense();
         } else {
             otherDense = (DenseHyperLogLogEncoder) encoder;
         }
 
+//        System.out.println("Register len: " + register.length);
         for (int i = 0; i < register.length; i++) {
-            if (register[i] < otherDense.register[i]) {
-                register[i] = otherDense.register[i];
-            }
+//            if (count-- >= 0) {
+//                System.out.println("A: " + register[i] + " B: " + otherDense.register[i] + " Max: " + Math.max(register[i], otherDense.register[i]));
+//                System.out.flush();
+//            }
+            register[i] = (byte) Math.max(register[i], otherDense.register[i]);
         }
 
         return this;

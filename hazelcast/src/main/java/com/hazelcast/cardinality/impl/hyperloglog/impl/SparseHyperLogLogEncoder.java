@@ -35,10 +35,10 @@ public class SparseHyperLogLogEncoder implements HyperLogLogEncoder  {
 
     private int p;
     private int pMask;
+    private int pFenseMask;
     private int pPrime;
     private int pPrimeMask;
     private long pDiffMask;
-    private long pDiffEncodedMask;
 
     private VariableLengthDiffArray register;
 
@@ -55,20 +55,22 @@ public class SparseHyperLogLogEncoder implements HyperLogLogEncoder  {
 
     public void init(int p, int pPrime, VariableLengthDiffArray register) {
         this.p = p;
+        this.pFenseMask= 1 << (64 - p) - 1;
         this.pPrime = pPrime;
         this.pPrimeMask = (1 << pPrime) - 1;
         this.mPrime = 1 << pPrime;
         this.temp = new int[DEFAULT_TEMP_CAPACITY];
-
         this.pMask = ((1 << p) - 1);
         this.pDiffMask = pPrimeMask ^ pMask;
-        this.pDiffEncodedMask = (1L << (pPrime - p)) - 1;
         this.register = register;
     }
 
     @Override
     public boolean add(long hash) {
         int encoded = encodeHash(hash);
+        int index = decodeHashPIndex(encoded);
+        byte value = decodeHashRunOfZeros(encoded);
+//        System.out.println("Sparse to Dense bin: " + Long.toBinaryString(encoded) + " index: " + index + " for hash: " + encoded + " value: " + value);
         temp[tempIdx++] = encoded;
         boolean isTempAtCapacity = tempIdx == DEFAULT_TEMP_CAPACITY;
         if (isTempAtCapacity) {
@@ -149,7 +151,7 @@ public class SparseHyperLogLogEncoder implements HyperLogLogEncoder  {
         if ((hash & pDiffMask) == 0) {
             return index | Long.numberOfTrailingZeros((hash >>> pPrime) | P_PRIME_FENCE_MASK) << 1 | 0x1;
         }
-
+//        System.out.println("HEHEHEHEHERE");
         return ((index >>> (32 - pPrime)) & pPrimeMask) << 1;
     }
 
@@ -169,18 +171,31 @@ public class SparseHyperLogLogEncoder implements HyperLogLogEncoder  {
         return (int) (hash >>> (32 - pPrime)) & pMask;
     }
 
-    private byte decodeHashRunOfZeros(long hash) {
+    private byte decodeHashRunOfZeros(int hash) {
         if (!hasRunOfZerosEncoded(hash)) {
             // |-25bits-||-1bit-
             // (p - p') || 0
-            int pDiff = (int) ((hash >>> 1) & pDiffEncodedMask);
-            return (byte) (Integer.numberOfTrailingZeros(pDiff) + 1);
+            int stripFlag = hash >>> 1;
+            int pShifted = stripFlag >>> p;
+            return (byte) Integer.numberOfTrailingZeros(pShifted | pFenseMask);
+//            int pDiff = ((hash >>> 1) & pDiffMaskT);
+//            byte a = (byte) (Integer.numberOfTrailingZeros(pDiff) + 1);
+//            byte b = (byte) (Long.numberOfTrailingZeros((hash >>> p + 1) | pFenseMask) + 1);
+//
+//            if (a != b) {
+//                System.out.println(Integer.toBinaryString(hash) + ", " + Integer.toBinaryString(pDiffMaskT) + ", " + Integer.toBinaryString(pDiff));
+//                System.out.println(Integer.toBinaryString((hash >>> p + 1)) + ", " + Integer.toBinaryString(pFenseMask) + ", " + Integer.toBinaryString((hash >>> p + 1) | pFenseMask));
+//                throw new IllegalStateException();
+//            }
+//
+//            return a;//(byte) (Long.numberOfTrailingZeros((hash >>> p + 1) | pFenseMask) + 1);
         }
 
         // |-25bits-||-6bits-||-1bit-|
         // (p - p') || p(w') || 1
         int pW = (int) (hash & ((1 << (32 - pPrime)) - 1)) >>> 1;
-        return (byte) (pW + (pPrime - p) + 1);
+        byte b = (byte) (pW + (pPrime - p) + 1);
+        return b;
     }
 
     private boolean hasRunOfZerosEncoded(long hash) {

@@ -76,6 +76,7 @@ public abstract class AbstractHazelcastClassRunner extends AbstractParameterized
     private static final boolean THREAD_CONTENTION_INFO_AVAILABLE;
 
     static {
+        System.setProperty(TestEnvironment.HAZELCAST_TEST_USE_NETWORK, "false");
         initialize();
 
         final String threadDumpOnFailure = System.getProperty("hazelcast.test.threadDumpOnFailure");
