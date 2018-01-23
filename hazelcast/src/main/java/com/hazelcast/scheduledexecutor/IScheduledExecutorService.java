@@ -76,7 +76,8 @@ import java.util.concurrent.TimeUnit;
  * Supports Quorum {@link com.hazelcast.config.QuorumConfig} since 3.10 in cluster versions 3.10 and higher.
  */
 @Beta
-public interface IScheduledExecutorService extends DistributedObject {
+public interface IScheduledExecutorService
+        extends DistributedObject {
 
     /**
      * Creates and executes a one-shot action that becomes enabled

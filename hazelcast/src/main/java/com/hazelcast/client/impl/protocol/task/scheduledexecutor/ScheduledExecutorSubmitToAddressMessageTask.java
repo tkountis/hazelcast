@@ -42,6 +42,7 @@ public class ScheduledExecutorSubmitToAddressMessageTask
 
     @Override
     protected Operation prepareOperation() {
+        parameters.address
         Callable callable = serializationService.toObject(parameters.task);
         TaskDefinition def = new TaskDefinition(TaskDefinition.Type.getById(parameters.type),
                 parameters.taskName, callable, parameters.initialDelayInMillis, parameters.periodInMillis,
