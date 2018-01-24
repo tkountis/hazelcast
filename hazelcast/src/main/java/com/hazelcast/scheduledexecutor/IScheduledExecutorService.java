@@ -80,6 +80,30 @@ public interface IScheduledExecutorService
         extends DistributedObject {
 
     /**
+     * Executes a one-shot task.
+     * Once the task is complete, any remaining resources linked to it, are released.
+     *
+     * @param command       the task to execute
+     * @throws java.util.concurrent.RejectedExecutionException if the task can not be executed
+     */
+    void execute(Runnable command);
+
+
+    /**
+     * Executes a one-shot task.
+     * Once the task is complete, any remaining resources linked to it,
+     * must be manually released by calling {@link IScheduledFuture#dispose()}
+     *
+     * @param task           the task to execute
+     * @param <T>            the result type of callable
+     * @return  a Future representing pending completion of
+     *         the task and whose {@code get()} method will return
+     *         {@code null} upon completion
+     * @throws java.util.concurrent.RejectedExecutionException  if the task cannot be executed
+     */
+    <T> IFuture<T> submit(Callable<T> task);
+
+    /**
      * Creates and executes a one-shot action that becomes enabled
      * after the given delay.
      *

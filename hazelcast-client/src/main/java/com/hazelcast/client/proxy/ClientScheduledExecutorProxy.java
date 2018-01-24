@@ -33,6 +33,7 @@ import com.hazelcast.logging.Logger;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.quorum.QuorumException;
+import com.hazelcast.scheduledexecutor.IFuture;
 import com.hazelcast.scheduledexecutor.IScheduledExecutorService;
 import com.hazelcast.scheduledexecutor.IScheduledFuture;
 import com.hazelcast.scheduledexecutor.NamedTask;
@@ -106,6 +107,17 @@ public class ClientScheduledExecutorProxy
     }
 
     @Override
+    public void execute(Runnable command) {
+        //TODO
+    }
+
+    @Override
+    public <T> IFuture<T> submit(Callable<T> task) {
+        //TODO
+        return null;
+    }
+
+    @Override
     public IScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit) {
         Callable adapter = createScheduledRunnableAdapter(command);
         return schedule(adapter, delay, unit);
@@ -118,7 +130,7 @@ public class ClientScheduledExecutorProxy
 
         String name = extractNameOrGenerateOne(command);
         int partitionId = getTaskOrKeyPartitionId(command, name);
-        TaskDefinition<V> definition = new TaskDefinition<V>(TaskDefinition.Type.SINGLE_RUN, name, command, delay, unit);
+        TaskDefinition<V> definition = new TaskDefinition<V>(TaskDefinition.Type.SINGLE_RUN, name, null, command, delay, unit);
         return scheduleOnPartition(name, definition, partitionId);
     }
 
@@ -131,7 +143,7 @@ public class ClientScheduledExecutorProxy
         String name = extractNameOrGenerateOne(command);
         int partitionId = getTaskOrKeyPartitionId(command, name);
         Callable adapter = createScheduledRunnableAdapter(command);
-        TaskDefinition definition = new TaskDefinition(TaskDefinition.Type.AT_FIXED_RATE, name, adapter,
+        TaskDefinition definition = new TaskDefinition(TaskDefinition.Type.AT_FIXED_RATE, name, null, adapter,
                 initialDelay, period, unit);
 
         return scheduleOnPartition(name, definition, partitionId);
@@ -170,7 +182,7 @@ public class ClientScheduledExecutorProxy
 
         String name = extractNameOrGenerateOne(command);
         int partitionId = getKeyPartitionId(key);
-        TaskDefinition definition = new TaskDefinition(TaskDefinition.Type.SINGLE_RUN, name, command,
+        TaskDefinition definition = new TaskDefinition(TaskDefinition.Type.SINGLE_RUN, name, null, command,
                 delay, unit);
         return scheduleOnPartition(name, definition, partitionId);
     }
@@ -185,7 +197,7 @@ public class ClientScheduledExecutorProxy
         String name = extractNameOrGenerateOne(command);
         int partitionId = getKeyPartitionId(key);
         Callable adapter = createScheduledRunnableAdapter(command);
-        TaskDefinition definition = new TaskDefinition(TaskDefinition.Type.AT_FIXED_RATE, name, adapter,
+        TaskDefinition definition = new TaskDefinition(TaskDefinition.Type.AT_FIXED_RATE, name, null, adapter,
                 initialDelay, period, unit);
         return scheduleOnPartition(name, definition, partitionId);
     }
@@ -226,7 +238,7 @@ public class ClientScheduledExecutorProxy
         Map<Member, IScheduledFuture<V>> futures = new HashMap<Member, IScheduledFuture<V>>();
         for (Member member : members) {
             TaskDefinition definition = new TaskDefinition(
-                    TaskDefinition.Type.SINGLE_RUN, name, command, delay, unit);
+                    TaskDefinition.Type.SINGLE_RUN, name, null, command, delay, unit);
 
             futures.put(member, (IScheduledFuture<V>) scheduleOnMember(name, member, definition));
         }
@@ -247,7 +259,7 @@ public class ClientScheduledExecutorProxy
         Map<Member, IScheduledFuture<?>> futures = new HashMap<Member, IScheduledFuture<?>>();
         for (Member member : members) {
             TaskDefinition definition = new TaskDefinition(
-                    TaskDefinition.Type.AT_FIXED_RATE, name, adapter, initialDelay, period, unit);
+                    TaskDefinition.Type.AT_FIXED_RATE, name, null, adapter, initialDelay, period, unit);
 
             futures.put(member, scheduleOnMember(name, member, definition));
         }

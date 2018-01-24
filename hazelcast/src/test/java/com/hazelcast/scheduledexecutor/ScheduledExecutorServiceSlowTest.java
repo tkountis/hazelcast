@@ -371,7 +371,7 @@ public class ScheduledExecutorServiceSlowTest extends ScheduledExecutorServiceTe
         int tasksCount = 1000;
         final IScheduledExecutorService scheduler = first.getScheduledExecutorService("scheduler");
         for (int i = 1; i <= tasksCount; i++) {
-            scheduler.scheduleAtFixedRate(named(valueOf(i), new EchoTask()), 5, 10, SECONDS);
+            scheduler.scheduleAtFixedRate(named(valueOf(i), new EchoTask("One")), 5, 10, SECONDS);
         }
 
         assertTrueEventually(new AllTasksRunningWithinNumOfNodes(scheduler, 1));

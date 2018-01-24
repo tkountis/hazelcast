@@ -41,7 +41,7 @@ public class ScheduleTaskOperation
     @Override
     public void run()
             throws Exception {
-        getContainer().schedule((TaskDefinition) definition);
+        getContainer().process((TaskDefinition) definition);
     }
 
     @Override

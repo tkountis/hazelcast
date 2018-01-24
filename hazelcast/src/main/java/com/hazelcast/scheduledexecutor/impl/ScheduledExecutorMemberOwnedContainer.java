@@ -45,13 +45,13 @@ public class ScheduledExecutorMemberOwnedContainer extends ScheduledExecutorCont
     }
 
     @Override
-    public ScheduledFuture schedule(TaskDefinition definition) {
+    public ScheduledFuture process(TaskDefinition definition) {
         try {
             acquireMemberPartitionLockIfNeeded();
 
             checkNotDuplicateTask(definition.getName());
             checkNotAtCapacity();
-            return createContextAndSchedule(definition);
+            return createContextAndProcess(definition);
 
         } finally {
             releaseMemberPartitionLockIfNeeded();

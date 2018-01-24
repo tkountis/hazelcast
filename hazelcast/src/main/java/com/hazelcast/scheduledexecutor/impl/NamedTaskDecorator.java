@@ -16,16 +16,20 @@
 
 package com.hazelcast.scheduledexecutor.impl;
 
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.HazelcastInstanceAware;
+import com.hazelcast.instance.Node;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.scheduledexecutor.NamedTask;
+import com.hazelcast.spi.NodeAware;
 
 import java.io.IOException;
 import java.util.concurrent.Callable;
 
 public class NamedTaskDecorator<V>
-        implements Runnable, Callable<V>, NamedTask, IdentifiedDataSerializable {
+        implements Runnable, Callable<V>, NodeAware, HazelcastInstanceAware, NamedTask, IdentifiedDataSerializable {
 
     private String name;
 
@@ -58,6 +62,24 @@ public class NamedTaskDecorator<V>
     public V call()
             throws Exception {
         return ((Callable<V>) delegate).call();
+    }
+
+    @Override
+    public void setNode(Node node) {
+        if (delegate instanceof NodeAware) {
+            ((NodeAware) delegate).setNode(node);
+        }
+    }
+
+    @Override
+    public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
+        if (delegate instanceof HazelcastInstanceAware) {
+            ((HazelcastInstanceAware) delegate).setHazelcastInstance(hazelcastInstance);
+        }
+    }
+
+    public Object getDelegate() {
+        return delegate;
     }
 
     @Override

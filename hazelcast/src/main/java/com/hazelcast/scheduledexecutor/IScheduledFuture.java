@@ -29,7 +29,7 @@ import java.util.concurrent.ScheduledFuture;
  * @param <V> The result type returned by this Future
  */
 public interface IScheduledFuture<V>
-        extends ScheduledFuture<V> {
+        extends ScheduledFuture<V>, IFuture<V> {
 
     /**
      * Returns the scheduled future resource handler.
@@ -47,36 +47,5 @@ public interface IScheduledFuture<V>
      * @return An instance of {@link ScheduledTaskStatistics}, holding all stas and measurements
      */
     ScheduledTaskStatistics getStats();
-
-    /**
-     * Used to destroy the instance of the {@link IScheduledFuture} in the scheduled executor.
-     * Once the instance is destroyed, any subsequent action on the {@link IScheduledFuture} will
-     * fail with an {@link IllegalStateException}
-     * Attempting to re-create the {@link IScheduledFuture} from the
-     * {@link IScheduledExecutorService#getScheduledFuture(ScheduledTaskHandler)} using the {@link #getHandler()}
-     * will succeed, but any subsequent access on that new future, will also fail with {@link StaleTaskException}
-     */
-    void dispose();
-
-    /**
-     * Attempts to cancel further scheduling of this task.  This attempt will
-     * fail if the task has already completed, has already been cancelled,
-     * or could not be cancelled for some other reason. If successful,
-     * and this task has not started when {@code cancel} is called,
-     * this task should never run.
-     *
-     * <p><b>Warning: </b> This cancel will not attempt to interrupt the running
-     * thread if the task is already in progress, will just cancel further scheduling.</p>
-     *
-     * <p>After this method returns, subsequent calls to {@link #isDone} will
-     * always return {@code true}.  Subsequent calls to {@link #isCancelled}
-     * will always return {@code true} if this method returned {@code true}.
-     *
-     * @param mayInterruptIfRunning is throwing {@link UnsupportedOperationException}
-     * @return {@code false} if the task could not be cancelled,
-     * typically because it has already completed normally;
-     * {@code true
-     */
-    boolean cancel(boolean mayInterruptIfRunning);
 
 }

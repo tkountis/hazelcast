@@ -43,7 +43,7 @@ public class ScheduledExecutorSubmitToPartitionMessageTask
     protected Operation prepareOperation() {
         Callable callable = serializationService.toObject(parameters.task);
         TaskDefinition def = new TaskDefinition(TaskDefinition.Type.getById(parameters.type),
-                parameters.taskName, callable, parameters.initialDelayInMillis, parameters.periodInMillis,
+                parameters.taskName, getEndpoint().getUuid(), callable, parameters.initialDelayInMillis, parameters.periodInMillis,
                 TimeUnit.MILLISECONDS);
         return new ScheduleTaskOperation(parameters.schedulerName, def);
     }
@@ -82,8 +82,8 @@ public class ScheduledExecutorSubmitToPartitionMessageTask
     public Object[] getParameters() {
         Callable callable = serializationService.toObject(parameters.task);
         TaskDefinition def = new TaskDefinition(TaskDefinition.Type.getById(parameters.type),
-                parameters.taskName, callable, parameters.initialDelayInMillis, parameters.periodInMillis,
-                TimeUnit.MILLISECONDS);
+                parameters.taskName, getEndpoint().getUuid(), callable, parameters.initialDelayInMillis,
+                parameters.periodInMillis, TimeUnit.MILLISECONDS);
         return new Object[] { parameters.schedulerName, def };
     }
 }

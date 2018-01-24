@@ -22,6 +22,7 @@ import com.hazelcast.internal.cluster.ClusterService;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.Address;
 import com.hazelcast.quorum.QuorumException;
+import com.hazelcast.scheduledexecutor.IFuture;
 import com.hazelcast.scheduledexecutor.IScheduledExecutorService;
 import com.hazelcast.scheduledexecutor.IScheduledFuture;
 import com.hazelcast.scheduledexecutor.NamedTask;
@@ -52,6 +53,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 import static com.hazelcast.scheduledexecutor.impl.DistributedScheduledExecutorService.SERVICE_NAME;
+import static com.hazelcast.scheduledexecutor.impl.TaskDefinition.Type.EXECUTE;
+import static com.hazelcast.scheduledexecutor.impl.TaskDefinition.Type.SUBMIT;
 import static com.hazelcast.util.ExceptionUtil.rethrow;
 import static com.hazelcast.util.ExceptionUtil.sneakyThrow;
 import static com.hazelcast.util.FutureUtil.waitWithDeadline;
@@ -104,6 +107,33 @@ public class ScheduledExecutorServiceProxy
     }
 
     @Override
+    public void execute(Runnable command) {
+        checkNotNull(command, "Command is null");
+
+        ScheduledRunnableAdapter<Void> callable = createScheduledRunnableAdapter(command);
+        initializeManagedContext(callable);
+
+        String name = extractNameOrGenerateOne(command);
+        int partitionId = getTaskOrKeyPartitionId(command, name);
+
+        TaskDefinition<Void> definition = new TaskDefinition<Void>(EXECUTE, name, null, callable);
+        submitOnPartitionSync(name, new ScheduleTaskOperation(getName(), definition), partitionId);
+    }
+
+    @Override
+    public <T> IFuture<T> submit(Callable<T> command) {
+        checkNotNull(command, "Command is null");
+        initializeManagedContext(command);
+
+        String name = extractNameOrGenerateOne(command);
+        String ownerUUID = getNodeEngine().getLocalMember().getUuid();
+        int partitionId = getTaskOrKeyPartitionId(command, name);
+
+        TaskDefinition<T> definition = new TaskDefinition<T>(SUBMIT, name, ownerUUID, command);
+        return submitOnPartitionSync(name, new ScheduleTaskOperation(getName(), definition), partitionId);
+    }
+
+    @Override
     public IScheduledFuture schedule(Runnable command, long delay, TimeUnit unit) {
         checkNotNull(command, "Command is null");
         checkNotNull(unit, "Unit is null");
@@ -120,10 +150,11 @@ public class ScheduledExecutorServiceProxy
         initializeManagedContext(command);
 
         String name = extractNameOrGenerateOne(command);
+        String ownerUUID = getNodeEngine().getLocalMember().getUuid();
         int partitionId = getTaskOrKeyPartitionId(command, name);
 
         TaskDefinition<V> definition = new TaskDefinition<V>(
-                TaskDefinition.Type.SINGLE_RUN, name, command, delay, unit);
+                TaskDefinition.Type.SINGLE_RUN, name, ownerUUID, command, delay, unit);
 
         return submitOnPartitionSync(name, new ScheduleTaskOperation(getName(), definition), partitionId);
     }
@@ -135,11 +166,12 @@ public class ScheduledExecutorServiceProxy
         initializeManagedContext(command);
 
         String name = extractNameOrGenerateOne(command);
+        String ownerUUID = getNodeEngine().getLocalMember().getUuid();
         int partitionId = getTaskOrKeyPartitionId(command, name);
 
         ScheduledRunnableAdapter<?> adapter = createScheduledRunnableAdapter(command);
         TaskDefinition definition = new TaskDefinition(
-                TaskDefinition.Type.AT_FIXED_RATE, name, adapter, initialDelay, period, unit);
+                TaskDefinition.Type.AT_FIXED_RATE, name, ownerUUID, adapter, initialDelay, period, unit);
 
         return submitOnPartitionSync(name, new ScheduleTaskOperation(getName(), definition), partitionId);
     }
@@ -190,10 +222,11 @@ public class ScheduledExecutorServiceProxy
         initializeManagedContext(command);
 
         String name = extractNameOrGenerateOne(command);
+        String ownerUUID = getNodeEngine().getLocalMember().getUuid();
         int partitionId = getKeyPartitionId(key);
 
         TaskDefinition definition = new TaskDefinition(
-                TaskDefinition.Type.SINGLE_RUN, name, command, delay, unit);
+                TaskDefinition.Type.SINGLE_RUN, name, ownerUUID, command, delay, unit);
         return submitOnPartitionSync(name, new ScheduleTaskOperation(getName(), definition), partitionId);
     }
 
@@ -206,10 +239,11 @@ public class ScheduledExecutorServiceProxy
         initializeManagedContext(command);
 
         String name = extractNameOrGenerateOne(command);
+        String ownerUUID = getNodeEngine().getLocalMember().getUuid();
         int partitionId = getKeyPartitionId(key);
         ScheduledRunnableAdapter<?> adapter = createScheduledRunnableAdapter(command);
         TaskDefinition definition = new TaskDefinition(
-                TaskDefinition.Type.AT_FIXED_RATE, name, adapter, initialDelay, period, unit);
+                TaskDefinition.Type.AT_FIXED_RATE, name, ownerUUID, adapter, initialDelay, period, unit);
 
         return submitOnPartitionSync(name, new ScheduleTaskOperation(getName(), definition), partitionId);
     }
@@ -261,10 +295,11 @@ public class ScheduledExecutorServiceProxy
         initializeManagedContext(command);
 
         String name = extractNameOrGenerateOne(command);
+        String ownerUUID = getNodeEngine().getLocalMember().getUuid();
         Map<Member, IScheduledFuture<V>> futures = createHashMap(members.size());
         for (Member member : members) {
             TaskDefinition<V> definition = new TaskDefinition<V>(
-                    TaskDefinition.Type.SINGLE_RUN, name, command, delay, unit);
+                    TaskDefinition.Type.SINGLE_RUN, name, ownerUUID, command, delay, unit);
 
             futures.put(member,
                     (IScheduledFuture<V>) submitOnMemberSync(name,
@@ -283,11 +318,12 @@ public class ScheduledExecutorServiceProxy
         initializeManagedContext(command);
 
         String name = extractNameOrGenerateOne(command);
+        String ownerUUID = getNodeEngine().getLocalMember().getUuid();
         ScheduledRunnableAdapter<?> adapter = createScheduledRunnableAdapter(command);
         Map<Member, IScheduledFuture<?>> futures = createHashMapAdapter(members.size());
         for (Member member : members) {
             TaskDefinition definition = new TaskDefinition(
-                    TaskDefinition.Type.AT_FIXED_RATE, name, adapter, initialDelay, period, unit);
+                    TaskDefinition.Type.AT_FIXED_RATE, name, ownerUUID, adapter, initialDelay, period, unit);
 
             futures.put(member, submitOnMemberSync(name, new ScheduleTaskOperation(getName(), definition), member));
         }
@@ -451,6 +487,10 @@ public class ScheduledExecutorServiceProxy
     }
 
     private void initializeManagedContext(Object object) {
+        if (object instanceof NamedTaskDecorator) {
+            object = ((NamedTaskDecorator) object).getDelegate();
+        }
+
         getNodeEngine().getSerializationService()
                 .getManagedContext().initialize(object);
     }

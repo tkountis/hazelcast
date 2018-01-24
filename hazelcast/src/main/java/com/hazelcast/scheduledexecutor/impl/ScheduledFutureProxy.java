@@ -22,6 +22,7 @@ import com.hazelcast.core.MembershipEvent;
 import com.hazelcast.instance.HazelcastInstanceImpl;
 import com.hazelcast.nio.Address;
 import com.hazelcast.partition.PartitionLostEvent;
+import com.hazelcast.scheduledexecutor.IFuture;
 import com.hazelcast.scheduledexecutor.IScheduledFuture;
 import com.hazelcast.scheduledexecutor.ScheduledTaskHandler;
 import com.hazelcast.scheduledexecutor.ScheduledTaskStatistics;
@@ -50,7 +51,7 @@ import static com.hazelcast.util.Preconditions.checkNotNull;
 @SuppressFBWarnings("EQ_COMPARETO_USE_OBJECT_EQUALS")
 @SuppressWarnings({"checkstyle:methodcount"})
 public final class ScheduledFutureProxy<V>
-        implements IScheduledFuture<V>,
+        implements IScheduledFuture<V>, IFuture<V>,
                    HazelcastInstanceAware {
 
     private transient HazelcastInstance instance;

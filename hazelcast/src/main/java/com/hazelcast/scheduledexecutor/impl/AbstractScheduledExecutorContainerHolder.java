@@ -16,6 +16,7 @@
 
 package com.hazelcast.scheduledexecutor.impl;
 
+import com.hazelcast.scheduledexecutor.impl.operations.DisposeTaskOperation;
 import com.hazelcast.spi.NodeEngine;
 import com.hazelcast.spi.impl.executionservice.InternalExecutionService;
 import com.hazelcast.util.ConstructorFunction;
@@ -70,4 +71,16 @@ public abstract class AbstractScheduledExecutorContainerHolder implements Schedu
     }
 
     protected abstract ConstructorFunction<String, ScheduledExecutorContainer> getContainerConstructorFunction();
+
+    void disposeOrphanedTasks(String uuid) {
+        for (ScheduledExecutorContainer container : containers.values()) {
+            for (ScheduledTaskDescriptor descriptor : container.getTasks()) {
+                TaskDefinition definition = descriptor.getDefinition();
+                if (uuid != null && uuid.equals(definition.getOwnerUUID())) {
+                    nodeEngine.getOperationService().invokeOnPartition(
+                            new DisposeTaskOperation(container.offprintHandler(definition.getName())));
+                }
+            }
+        }
+    }
 }

@@ -42,7 +42,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.hazelcast.scheduledexecutor.impl.DistributedScheduledExecutorService.SERVICE_NAME;
-import static com.hazelcast.scheduledexecutor.impl.TaskDefinition.Type.SINGLE_RUN;
+import static com.hazelcast.scheduledexecutor.impl.TaskDefinition.Type.AT_FIXED_RATE;
+import static com.hazelcast.scheduledexecutor.impl.TaskDefinition.Type.EXECUTE;
 import static com.hazelcast.util.ExceptionUtil.rethrow;
 import static com.hazelcast.util.ExceptionUtil.sneakyThrow;
 import static com.hazelcast.util.MapUtil.createHashMap;
@@ -82,10 +83,10 @@ public class ScheduledExecutorContainer {
         this.tasks = tasks;
     }
 
-    public ScheduledFuture schedule(TaskDefinition definition) {
+    public ScheduledFuture process(TaskDefinition definition) {
         checkNotDuplicateTask(definition.getName());
         checkNotAtCapacity();
-        return createContextAndSchedule(definition);
+        return createContextAndProcess(definition);
     }
 
     public boolean cancel(String taskName)
@@ -237,14 +238,14 @@ public class ScheduledExecutorContainer {
         return ScheduledTaskHandlerImpl.of(partitionId, getName(), taskName);
     }
 
-    ScheduledFuture createContextAndSchedule(TaskDefinition definition) {
+    ScheduledFuture createContextAndProcess(TaskDefinition definition) {
         if (logger.isFinestEnabled()) {
             logger.finest("[Scheduler: " + name + "][Partition: " + partitionId + "] Scheduling " + definition);
         }
 
         ScheduledTaskDescriptor descriptor = new ScheduledTaskDescriptor(definition);
         if (tasks.putIfAbsent(definition.getName(), descriptor) == null) {
-            doSchedule(descriptor);
+            doProcess(descriptor);
         }
 
         if (logger.isFinestEnabled()) {
@@ -262,7 +263,7 @@ public class ScheduledExecutorContainer {
                 }
 
                 if (descriptor.shouldSchedule()) {
-                    doSchedule(descriptor);
+                    doProcess(descriptor);
                 }
 
                 descriptor.setTaskOwner(true);
@@ -339,31 +340,34 @@ public class ScheduledExecutorContainer {
         return operationService.createInvocationBuilder(SERVICE_NAME, op, partitionId);
     }
 
-    private <V> void doSchedule(ScheduledTaskDescriptor descriptor) {
+    private <V> void doProcess(ScheduledTaskDescriptor descriptor) {
         assert descriptor.getScheduledFuture() == null;
         TaskDefinition definition = descriptor.getDefinition();
 
         ScheduledFuture future;
-        TaskRunner<V> runner;
+        TaskRunner<V> runner = new TaskRunner<V>(descriptor);
         switch (definition.getType()) {
             case SINGLE_RUN:
-                runner = new TaskRunner<V>(descriptor);
+            case SUBMIT:
                 future = new DelegatingScheduledFutureStripper<V>(
                             executionService.scheduleDurable(name, (Callable) runner,
                                 definition.getInitialDelay(), definition.getUnit()));
+                descriptor.setScheduledFuture(future);
                 break;
             case AT_FIXED_RATE:
-                runner = new TaskRunner<V>(descriptor);
                 future = executionService.scheduleDurableWithRepetition(name,
                         runner, definition.getInitialDelay(), definition.getPeriod(),
                         definition.getUnit());
+                descriptor.setScheduledFuture(future);
+                break;
+            case EXECUTE:
+                executionService.execute(name, runner);
                 break;
             default:
                 throw new IllegalArgumentException();
         }
 
         descriptor.setTaskOwner(true);
-        descriptor.setScheduledFuture(future);
     }
 
     private void checkNotStaleTask(String taskName) {
@@ -400,7 +404,7 @@ public class ScheduledExecutorContainer {
             beforeRun();
             try {
                 V result = original.call();
-                if (SINGLE_RUN.equals(descriptor.getDefinition().getType())) {
+                if (!AT_FIXED_RATE.equals(descriptor.getDefinition().getType())) {
                     resolution = new ScheduledTaskResult(result);
                 }
                 return result;
@@ -465,6 +469,7 @@ public class ScheduledExecutorContainer {
                         + "Unexpected exception during afterRun occurred: ", ex);
             } finally {
                 notifyResultReady();
+                cleanUpIfSingeExec();
             }
 
             if (logger.isFinestEnabled()) {
@@ -478,6 +483,16 @@ public class ScheduledExecutorContainer {
             createInvocationBuilder(op)
                     .setCallTimeout(Long.MAX_VALUE)
                     .invoke();
+        }
+
+        private void cleanUpIfSingeExec() {
+            if (EXECUTE.equals(descriptor.getDefinition().getType())) {
+                try {
+                    dispose(taskName);
+                } catch (Exception e) {
+                    throw rethrow(e);
+                }
+            }
         }
 
     }

@@ -16,6 +16,7 @@
 
 package com.hazelcast.scheduledexecutor.impl;
 
+import com.hazelcast.internal.cluster.Versions;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
@@ -29,7 +30,9 @@ public class TaskDefinition<V> implements IdentifiedDataSerializable {
     public enum Type {
 
         SINGLE_RUN(0),
-        AT_FIXED_RATE(1);
+        AT_FIXED_RATE(1),
+        EXECUTE(2),
+        SUBMIT(3);
 
         private final byte id;
 
@@ -54,6 +57,7 @@ public class TaskDefinition<V> implements IdentifiedDataSerializable {
     private Type type;
     private String name;
     private Callable<V> command;
+    private String ownerUUID;
     private long initialDelay;
     private long period;
     private TimeUnit unit;
@@ -61,21 +65,23 @@ public class TaskDefinition<V> implements IdentifiedDataSerializable {
     public TaskDefinition() {
     }
 
-    public TaskDefinition(Type type, String name, Callable<V> command, long delay, TimeUnit unit) {
-        this.type = type;
-        this.name = name;
-        this.command = command;
-        this.initialDelay = delay;
-        this.unit = unit;
+    public TaskDefinition(Type type, String name, String ownerUUID, Callable<V> command) {
+        this(type, name, ownerUUID, command, 0L, 0L, TimeUnit.MICROSECONDS);
     }
 
-    public TaskDefinition(Type type, String name, Callable<V> command, long initialDelay, long period, TimeUnit unit) {
+    public TaskDefinition(Type type, String name, String ownerUUID, Callable<V> command, long delay, TimeUnit unit) {
+        this(type, name, ownerUUID, command, delay, 0L, unit);
+    }
+
+    public TaskDefinition(Type type, String name, String ownerUUID, Callable<V> command,
+                          long initialDelay, long period, TimeUnit unit) {
         this.type = type;
         this.name = name;
         this.command = command;
         this.initialDelay = initialDelay;
         this.period = period;
         this.unit = unit;
+        this.ownerUUID = ownerUUID;
     }
 
     public Type getType() {
@@ -84,6 +90,10 @@ public class TaskDefinition<V> implements IdentifiedDataSerializable {
 
     public String getName() {
         return name;
+    }
+
+    public String getOwnerUUID() {
+        return ownerUUID;
     }
 
     public Callable<V> getCommand() {
@@ -120,6 +130,10 @@ public class TaskDefinition<V> implements IdentifiedDataSerializable {
         out.writeLong(initialDelay);
         out.writeLong(period);
         out.writeUTF(unit.name());
+
+        if (Versions.V3_10.isGreaterOrEqual(out.getVersion())) {
+            out.writeUTF(ownerUUID);
+        }
     }
 
     @Override
@@ -130,6 +144,10 @@ public class TaskDefinition<V> implements IdentifiedDataSerializable {
         initialDelay = in.readLong();
         period = in.readLong();
         unit = TimeUnit.valueOf(in.readUTF());
+
+        if (Versions.V3_10.isGreaterOrEqual(in.getVersion())) {
+            ownerUUID = in.readUTF();
+        }
     }
 
     @Override

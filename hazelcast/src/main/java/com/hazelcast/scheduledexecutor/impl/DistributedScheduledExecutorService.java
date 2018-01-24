@@ -24,6 +24,7 @@ import com.hazelcast.core.MembershipEvent;
 import com.hazelcast.internal.cluster.Versions;
 import com.hazelcast.partition.PartitionLostEvent;
 import com.hazelcast.partition.PartitionLostListener;
+import com.hazelcast.spi.ClientAwareService;
 import com.hazelcast.spi.ManagedService;
 import com.hazelcast.spi.MigrationAwareService;
 import com.hazelcast.spi.NodeEngine;
@@ -54,7 +55,7 @@ import static java.util.Collections.synchronizedSet;
  * Scheduled executor service, middle-man responsible for managing Scheduled Executor containers.
  */
 public class DistributedScheduledExecutorService
-        implements ManagedService, RemoteService, MigrationAwareService, QuorumAwareService {
+        implements ManagedService, RemoteService, MigrationAwareService, QuorumAwareService, ClientAwareService {
 
     public static final String SERVICE_NAME = "hz:impl:scheduledExecutorService";
 
@@ -223,6 +224,15 @@ public class DistributedScheduledExecutorService
             partition.promoteStash();
         }
         migrationMode.set(false);
+    }
+
+    @Override
+    public void clientDisconnected(String clientUuid) {
+        for (ScheduledExecutorPartition partition : partitions) {
+            partition.disposeOrphanedTasks(clientUuid);
+        }
+
+        memberBin.disposeOrphanedTasks(clientUuid);
     }
 
     private void discardStash(int partitionId, int thresholdReplicaIndex) {

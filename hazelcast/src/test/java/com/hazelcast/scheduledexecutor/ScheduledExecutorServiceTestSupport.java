@@ -58,7 +58,7 @@ public class ScheduledExecutorServiceTestSupport extends HazelcastTestSupport {
         return instances;
     }
 
-    int countScheduledTasksOn(IScheduledExecutorService scheduledExecutorService) {
+    protected int countScheduledTasksOn(IScheduledExecutorService scheduledExecutorService) {
         Map<Member, List<IScheduledFuture<Double>>> allScheduled = scheduledExecutorService.getAllScheduledFutures();
 
         int total = 0;
@@ -196,6 +196,31 @@ public class ScheduledExecutorServiceTestSupport extends HazelcastTestSupport {
         }
     }
 
+    static class SleepyRunnableTask implements Runnable, Serializable, HazelcastInstanceAware {
+
+        final String countDowLatch;
+
+        final int seconds;
+
+        transient HazelcastInstance instance;
+
+        SleepyRunnableTask(String countDowLatch, int seconds) {
+            this.countDowLatch = countDowLatch;
+            this.seconds = seconds;
+        }
+
+        @Override
+        public void run() {
+            sleepSeconds(seconds);
+            instance.getCountDownLatch(countDowLatch).countDown();
+        }
+
+        @Override
+        public void setHazelcastInstance(HazelcastInstance hazelcastInstance) {
+            this.instance = hazelcastInstance;
+        }
+    }
+
     static class HotLoopBusyTask implements Runnable, HazelcastInstanceAware, Serializable {
 
         private final String runFinishedLatchName;
@@ -218,6 +243,7 @@ public class ScheduledExecutorServiceTestSupport extends HazelcastTestSupport {
                     }
                 } catch (InterruptedException e) {
                     // ignore
+                    e.printStackTrace();
                 }
             }
         }
@@ -228,14 +254,14 @@ public class ScheduledExecutorServiceTestSupport extends HazelcastTestSupport {
         }
     }
 
-    static class PlainCallableTask implements Callable<Double>, Serializable {
+    protected static class PlainCallableTask implements Callable<Double>, Serializable {
 
         private int delta = 0;
 
         PlainCallableTask() {
         }
 
-        PlainCallableTask(int delta) {
+        public PlainCallableTask(int delta) {
             this.delta = delta;
         }
 
@@ -245,14 +271,17 @@ public class ScheduledExecutorServiceTestSupport extends HazelcastTestSupport {
         }
     }
 
-    static class EchoTask implements Runnable, Serializable {
+    public static class EchoTask implements Runnable, Serializable {
 
-        EchoTask() {
+        private String name;
+
+        public EchoTask(String name) {
+            this.name = name;
         }
 
         @Override
         public void run() {
-            System.out.println("Echo ...cho ...oo ..o");
+            System.out.println(name + " Echo ...cho ...oo ..o");
         }
 
     }
