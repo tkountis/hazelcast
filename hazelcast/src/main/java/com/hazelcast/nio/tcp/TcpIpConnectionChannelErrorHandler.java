@@ -20,6 +20,7 @@ import com.hazelcast.instance.OutOfMemoryErrorDispatcher;
 import com.hazelcast.internal.networking.Channel;
 import com.hazelcast.internal.networking.ChannelErrorHandler;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.LoggingService;
 
 import java.io.EOFException;
 
@@ -27,8 +28,8 @@ public class TcpIpConnectionChannelErrorHandler implements ChannelErrorHandler {
 
     private final ILogger logger;
 
-    public TcpIpConnectionChannelErrorHandler(ILogger logger) {
-        this.logger = logger;
+    public TcpIpConnectionChannelErrorHandler(LoggingService loggingService) {
+        this.logger = loggingService.getLogger(TcpIpConnectionChannelErrorHandler.class);
     }
 
     @Override

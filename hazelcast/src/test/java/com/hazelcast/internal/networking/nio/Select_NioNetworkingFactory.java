@@ -39,8 +39,7 @@ public class Select_NioNetworkingFactory implements NetworkingFactory {
                         .metricsRegistry(metricsRegistry)
                         .threadNamePrefix(ioService.getHazelcastName())
                         .errorHandler(
-                                new TcpIpConnectionChannelErrorHandler(
-                                        loggingService.getLogger(TcpIpConnectionChannelErrorHandler.class)))
+                                new TcpIpConnectionChannelErrorHandler(loggingService))
                         .inputThreadCount(properties.getInteger(IO_INPUT_THREAD_COUNT))
                         .outputThreadCount(properties.getInteger(IO_OUTPUT_THREAD_COUNT))
                         .balancerIntervalSeconds(properties.getInteger(IO_BALANCER_INTERVAL_SECONDS))

@@ -22,7 +22,6 @@ import com.hazelcast.instance.ProtocolType;
 import com.hazelcast.instance.EndpointQualifier;
 import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.networking.ChannelInitializerProvider;
-import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.internal.networking.ServerSocketRegistry;
 import com.hazelcast.internal.util.concurrent.ThreadFactoryImpl;
 import com.hazelcast.logging.ILogger;
@@ -58,9 +57,7 @@ public class TcpIpNetworkingService
 
     private final ILogger logger;
 
-    private final Networking networking;
-    private final MetricsRegistry metricsRegistry;
-    private final ServerSocketRegistry registry;
+    private final ServerSocketRegistry socketRegistry;
 
     private final ConcurrentMap<EndpointQualifier, EndpointManager<TcpIpConnection>> endpointManagers =
             new ConcurrentHashMap<EndpointQualifier, EndpointManager<TcpIpConnection>>();
@@ -69,38 +66,32 @@ public class TcpIpNetworkingService
 
     private final ScheduledExecutorService scheduler;
 
-    // accessed only in synchronized block
-    private volatile TcpIpAcceptor acceptor;
-
     private volatile boolean live;
 
     public TcpIpNetworkingService(Config config, IOService ioService,
-                                  ServerSocketRegistry registry,
+                                  ServerSocketRegistry socketRegistry,
                                   LoggingService loggingService,
                                   MetricsRegistry metricsRegistry,
-                                  Networking networking,
                                   ChannelInitializerProvider channelInitializerProvider) {
-        this(config, ioService, registry, loggingService, metricsRegistry, networking, channelInitializerProvider, null);
+        this(config, ioService, socketRegistry, loggingService, metricsRegistry, channelInitializerProvider, null);
     }
 
     public TcpIpNetworkingService(Config config, IOService ioService,
-                                  ServerSocketRegistry registry,
+                                  ServerSocketRegistry socketRegistry,
                                   LoggingService loggingService,
                                   MetricsRegistry metricsRegistry,
-                                  Networking networking,
                                   ChannelInitializerProvider channelInitializerProvider,
                                   HazelcastProperties properties) {
 
         this.ioService = ioService;
-        this.networking = networking;
-        this.metricsRegistry = metricsRegistry;
-        this.registry = registry;
+        this.socketRegistry = socketRegistry;
         this.logger = loggingService.getLogger(TcpIpNetworkingService.class);
         this.scheduler = new ScheduledThreadPoolExecutor(SCHEDULER_POOL_SIZE,
                 new ThreadFactoryImpl(createThreadPoolName(ioService.getHazelcastName(), "TcpIpNetworkingService")));
-        if (registry.holdsUnifiedSocket()) {
-            unifiedEndpointManager = new TcpIpUnifiedEndpointManager(this, null, channelInitializerProvider,
-                    ioService, loggingService, metricsRegistry, properties);
+        if (socketRegistry.holdsUnifiedSocket()) {
+            unifiedEndpointManager = new TcpIpUnifiedEndpointManager(this, null,
+                    socketRegistry.get(MEMBER),channelInitializerProvider, ioService, loggingService,
+                    metricsRegistry, properties);
         } else {
             unifiedEndpointManager = null;
         }
@@ -128,8 +119,9 @@ public class TcpIpNetworkingService
         } else {
             for (EndpointConfig endpointConfig : config.getAdvancedNetworkConfig().getEndpointConfigs().values()) {
                 EndpointQualifier qualifier = endpointConfig.getQualifier();
-                EndpointManager em = newEndpointManager(ioService, endpointConfig, channelInitializerProvider,
-                        loggingService, metricsRegistry, properties, singleton(endpointConfig.getProtocolType()));
+                EndpointManager em = newEndpointManager(ioService, endpointConfig, socketRegistry,
+                        channelInitializerProvider, loggingService, metricsRegistry, properties,
+                        singleton(endpointConfig.getProtocolType()));
                 endpointManagers.put(qualifier, em);
             }
         }
@@ -137,23 +129,20 @@ public class TcpIpNetworkingService
 
     private EndpointManager<TcpIpConnection> newEndpointManager(IOService ioService,
                                                                 EndpointConfig endpointConfig,
+                                                                ServerSocketRegistry socketRegistry,
                                                                 ChannelInitializerProvider channelInitializerProvider,
                                                                 LoggingService loggingService,
                                                                 MetricsRegistry metricsRegistry,
                                                                 HazelcastProperties properties,
                                                                 Set<ProtocolType> supportedProtocolTypes) {
-        return new TcpIpEndpointManager(this, endpointConfig, channelInitializerProvider, ioService, loggingService,
-                metricsRegistry, properties, supportedProtocolTypes);
+        return new TcpIpEndpointManager(this, endpointConfig,
+                socketRegistry.get(endpointConfig.getQualifier()), channelInitializerProvider,
+                ioService, loggingService, metricsRegistry, properties, supportedProtocolTypes);
     }
 
     @Override
     public IOService getIoService() {
         return ioService;
-    }
-
-    @Override
-    public Networking getNetworking() {
-        return networking;
     }
 
     @Override
@@ -166,15 +155,16 @@ public class TcpIpNetworkingService
         if (live) {
             return;
         }
-        if (!registry.isOpen()) {
+        if (!socketRegistry.isOpen()) {
             throw new IllegalStateException("Networking Service is already shutdown. Cannot start!");
         }
 
         live = true;
         logger.finest("Starting Networking Service and IO selectors.");
 
-        networking.start();
-        startAcceptor();
+        for (EndpointManager endpointManager : endpointManagers.values()) {
+            endpointManager.start();
+        }
     }
 
     @Override
@@ -185,29 +175,25 @@ public class TcpIpNetworkingService
         live = false;
         logger.finest("Stopping Networking Service");
 
-        shutdownAcceptor();
         if (unifiedEndpointManager != null) {
-            unifiedEndpointManager.reset(false);
+            unifiedEndpointManager.stop();
         } else {
             for (EndpointManager endpointManager : endpointManagers.values()) {
-                ((TcpIpEndpointManager) endpointManager).reset(false);
+                endpointManager.stop();
             }
         }
-
-        networking.shutdown();
     }
 
     @Override
     public synchronized void shutdown() {
-        shutdownAcceptor();
         closeServerSockets();
         stop();
         scheduler.shutdownNow();
         if (unifiedEndpointManager != null) {
-            unifiedEndpointManager.reset(true);
+            unifiedEndpointManager.shutdown();
         } else {
             for (EndpointManager endpointManager : endpointManagers.values()) {
-                ((TcpIpEndpointManager) endpointManager).reset(true);
+                endpointManager.shutdown();
             }
         }
     }
@@ -255,29 +241,12 @@ public class TcpIpNetworkingService
         scheduler.schedule(task, delay, unit);
     }
 
-    private void startAcceptor() {
-        if (acceptor != null) {
-            logger.warning("TcpIpAcceptor is already running! Shutting down old acceptor...");
-            shutdownAcceptor();
-        }
-
-        acceptor = new TcpIpAcceptor(registry, this, ioService).start();
-        metricsRegistry.collectMetrics(acceptor);
-    }
-
-    private void shutdownAcceptor() {
-        if (acceptor != null) {
-            acceptor.shutdown();
-            metricsRegistry.deregister(acceptor);
-            acceptor = null;
-        }
-    }
 
     private void closeServerSockets() {
         if (logger.isFinestEnabled()) {
-            logger.finest("Closing server socket channel: " + registry);
+            logger.finest("Closing server socket channel: " + socketRegistry);
         }
-        registry.destroy();
+        socketRegistry.destroy();
     }
 
 }

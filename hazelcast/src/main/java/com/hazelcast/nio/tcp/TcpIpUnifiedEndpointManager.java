@@ -26,6 +26,7 @@ import com.hazelcast.nio.IOService;
 import com.hazelcast.nio.NetworkingService;
 import com.hazelcast.spi.properties.HazelcastProperties;
 
+import java.nio.channels.ServerSocketChannel;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -38,10 +39,11 @@ class TcpIpUnifiedEndpointManager
         extends TcpIpEndpointManager {
 
     TcpIpUnifiedEndpointManager(NetworkingService root, EndpointConfig endpointConfig,
+                                ServerSocketChannel serverSocketChannel,
                                 ChannelInitializerProvider channelInitializerProvider,
                                 IOService ioService, LoggingService loggingService, MetricsRegistry metricsRegistry,
                                 HazelcastProperties properties) {
-        super(root, endpointConfig, channelInitializerProvider, ioService, loggingService,
+        super(root, endpointConfig, serverSocketChannel, channelInitializerProvider, ioService, loggingService,
                 metricsRegistry, properties, ProtocolType.valuesAsSet());
     }
 

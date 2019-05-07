@@ -240,6 +240,26 @@ class MockNetworkingService
             return send(packet, target, null);
         }
 
+        @Override
+        public Networking getEngine() {
+            return null;
+        }
+
+        @Override
+        public void start() {
+
+        }
+
+        @Override
+        public void stop() {
+
+        }
+
+        @Override
+        public void shutdown() {
+
+        }
+
         private boolean send(Packet packet, Address target, SendTask sendTask) {
             MockConnection connection = getConnection(target);
             if (connection != null) {
@@ -341,11 +361,6 @@ class MockNetworkingService
     @Override
     public boolean isLive() {
         return live;
-    }
-
-    @Override
-    public Networking getNetworking() {
-        return null;
     }
 
     @Override

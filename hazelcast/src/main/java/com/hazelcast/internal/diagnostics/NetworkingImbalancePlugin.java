@@ -74,7 +74,8 @@ public class NetworkingImbalancePlugin extends DiagnosticsPlugin {
         if (!(networkingService instanceof TcpIpNetworkingService)) {
             return null;
         }
-        return ((TcpIpNetworkingService) networkingService).getNetworking();
+//        return ((TcpIpNetworkingService) networkingService).getNetworking();
+        return null;
     }
 
     @Override

@@ -143,7 +143,7 @@ public class DefaultNodeContext implements NodeContext {
     @Override
     public NetworkingService createNetworkingService(Node node, ServerSocketRegistry registry) {
         NodeIOService ioService = new NodeIOService(node, node.nodeEngine);
-        Networking networking = createNetworking(node);
+//        Networking networking = createNetworking(node);
         Config config = node.getConfig();
 
         return new TcpIpNetworkingService(config,
@@ -151,28 +151,27 @@ public class DefaultNodeContext implements NodeContext {
                 registry,
                 node.loggingService,
                 node.nodeEngine.getMetricsRegistry(),
-                networking,
                 node.getNodeExtension().createChannelInitializerProvider(ioService),
                 node.getProperties());
     }
 
-    private Networking createNetworking(Node node) {
-
-        LoggingServiceImpl loggingService = node.loggingService;
-
-        ChannelErrorHandler errorHandler
-                = new TcpIpConnectionChannelErrorHandler(loggingService.getLogger(TcpIpConnectionChannelErrorHandler.class));
-
-        HazelcastProperties props = node.getProperties();
-
-        return new NioNetworking(
-                new NioNetworking.Context()
-                        .loggingService(loggingService)
-                        .metricsRegistry(node.nodeEngine.getMetricsRegistry())
-                        .threadNamePrefix(node.hazelcastInstance.getName())
-                        .errorHandler(errorHandler)
-                        .inputThreadCount(props.getInteger(IO_INPUT_THREAD_COUNT))
-                        .outputThreadCount(props.getInteger(IO_OUTPUT_THREAD_COUNT))
-                        .balancerIntervalSeconds(props.getInteger(IO_BALANCER_INTERVAL_SECONDS)));
-    }
+//    private Networking createNetworking(Node node) {
+//
+//        LoggingServiceImpl loggingService = node.loggingService;
+//
+//        ChannelErrorHandler errorHandler
+//                = new TcpIpConnectionChannelErrorHandler(loggingService.getLogger(TcpIpConnectionChannelErrorHandler.class));
+//
+//        HazelcastProperties props = node.getProperties();
+//
+//        return new NioNetworking(
+//                new NioNetworking.Context()
+//                        .loggingService(loggingService)
+//                        .metricsRegistry(node.nodeEngine.getMetricsRegistry())
+//                        .threadNamePrefix(node.hazelcastInstance.getName())
+//                        .errorHandler(errorHandler)
+//                        .inputThreadCount(props.getInteger(IO_INPUT_THREAD_COUNT))
+//                        .outputThreadCount(props.getInteger(IO_OUTPUT_THREAD_COUNT))
+//                        .balancerIntervalSeconds(props.getInteger(IO_BALANCER_INTERVAL_SECONDS)));
+//    }
 }

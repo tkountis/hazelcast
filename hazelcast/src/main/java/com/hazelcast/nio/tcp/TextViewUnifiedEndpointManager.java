@@ -16,6 +16,7 @@
 
 package com.hazelcast.nio.tcp;
 
+import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.ConnectionListener;
 import com.hazelcast.nio.EndpointManager;
@@ -83,6 +84,26 @@ class TextViewUnifiedEndpointManager
     @Override
     public boolean transmit(Packet packet, Address target) {
         return unifiedEndpointManager.transmit(packet, target);
+    }
+
+    @Override
+    public void start() {
+        unifiedEndpointManager.start();
+    }
+
+    @Override
+    public void stop() {
+        unifiedEndpointManager.stop();
+    }
+
+    @Override
+    public void shutdown() {
+        unifiedEndpointManager.shutdown();
+    }
+
+    @Override
+    public Networking getEngine() {
+        return unifiedEndpointManager.getEngine();
     }
 
     @Override

@@ -54,6 +54,12 @@ public class EndpointConfig implements NamedConfig {
      */
     public static final int DEFAULT_SOCKET_LINGER_SECONDS = 0;
 
+    public static final int DEFAULT_IO_INPUT_THREAD_COUNT = 3;
+
+    public static final int DEFAULT_IO_OUTPUT_THREAD_COUNT = 3;
+
+    public static final int DEFAULT_IO_BALANCER_INTERVAL_SECONDS = 20;
+
     protected String name;
     protected ProtocolType protocolType;
     protected InterfacesConfig interfaces = new InterfacesConfig();
@@ -69,6 +75,9 @@ public class EndpointConfig implements NamedConfig {
     private int socketSendBufferSizeKb = DEFAULT_SOCKET_SEND_BUFFER_SIZE_KB;
     private int socketRcvBufferSizeKb = DEFAULT_SOCKET_RECEIVE_BUFFER_SIZE_KB;
     private int socketLingerSeconds = DEFAULT_SOCKET_LINGER_SECONDS;
+    private int ioInputThreadCount = DEFAULT_IO_INPUT_THREAD_COUNT;
+    private int ioOutputThreadCount = DEFAULT_IO_OUTPUT_THREAD_COUNT;
+    private int ioBalancerIntervalSeconds = DEFAULT_IO_BALANCER_INTERVAL_SECONDS;
 
     public ProtocolType getProtocolType() {
         return protocolType;
@@ -266,6 +275,33 @@ public class EndpointConfig implements NamedConfig {
 
     EndpointConfig setProtocolType(ProtocolType protocolType) {
         this.protocolType = protocolType;
+        return this;
+    }
+
+    public int getIoInputThreadCount() {
+        return ioInputThreadCount;
+    }
+
+    public EndpointConfig setIoInputThreadCount(int ioInputThreadCount) {
+        this.ioInputThreadCount = ioInputThreadCount;
+        return this;
+    }
+
+    public int getIoOutputThreadCount() {
+        return ioOutputThreadCount;
+    }
+
+    public EndpointConfig setIoOutputThreadCount(int ioOutputThreadCount) {
+        this.ioOutputThreadCount = ioOutputThreadCount;
+        return this;
+    }
+
+    public int getIoBalancerIntervalSeconds() {
+        return ioBalancerIntervalSeconds;
+    }
+
+    public EndpointConfig setIoBalancerIntervalSeconds(int ioBalancerIntervalSeconds) {
+        this.ioBalancerIntervalSeconds = ioBalancerIntervalSeconds;
         return this;
     }
 }

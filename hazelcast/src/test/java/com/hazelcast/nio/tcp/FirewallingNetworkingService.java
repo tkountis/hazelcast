@@ -94,11 +94,6 @@ public class FirewallingNetworkingService
     }
 
     @Override
-    public Networking getNetworking() {
-        return delegate.getNetworking();
-    }
-
-    @Override
     public void start() {
         delegate.start();
     }
@@ -298,6 +293,26 @@ public class FirewallingNetworkingService
                 default:
                     return delegate.transmit(packet, target);
             }
+        }
+
+        @Override
+        public void start() {
+            delegate.start();
+        }
+
+        @Override
+        public void stop() {
+            delegate.stop();
+        }
+
+        @Override
+        public void shutdown() {
+            delegate.shutdown();
+        }
+
+        @Override
+        public Networking getEngine() {
+            return delegate.getEngine();
         }
 
         @Override

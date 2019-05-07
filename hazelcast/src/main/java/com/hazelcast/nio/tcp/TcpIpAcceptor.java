@@ -29,6 +29,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.IOService;
 
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -61,8 +62,8 @@ public class TcpIpAcceptor implements MetricsProvider {
     private static final long SELECT_TIMEOUT_MILLIS = SECONDS.toMillis(60);
     private static final int SELECT_IDLE_COUNT_THRESHOLD = 10;
 
-    private final ServerSocketRegistry registry;
-    private final TcpIpNetworkingService networkingService;
+    private final ServerSocketChannel serverSocketChannel;
+    private final TcpIpEndpointManager endpoint;
     private final ILogger logger;
     private final IOService ioService;
     @Probe
@@ -83,14 +84,12 @@ public class TcpIpAcceptor implements MetricsProvider {
 
     private volatile boolean stop;
     private volatile Selector selector;
+    private volatile SelectionKey selectionKey;
 
-    private final Set<SelectionKey> selectionKeys
-            = newSetFromMap(new ConcurrentHashMap<SelectionKey, Boolean>());
-
-    TcpIpAcceptor(ServerSocketRegistry registry, TcpIpNetworkingService networkingService, IOService ioService) {
-        this.registry = registry;
-            this.networkingService = networkingService;
-        this.ioService = networkingService.getIoService();
+    TcpIpAcceptor(ServerSocketChannel serverSocketChannel, TcpIpEndpointManager endpoint, IOService ioService) {
+        this.serverSocketChannel = serverSocketChannel;
+        this.endpoint = endpoint;
+        this.ioService = endpoint.getNetworkingService().getIoService();
         this.logger = ioService.getLoggingService().getLogger(getClass());
         this.acceptorThread = new AcceptorIOThread();
     }
@@ -144,19 +143,14 @@ public class TcpIpAcceptor implements MetricsProvider {
         @Override
         public void run() {
             if (logger.isFinestEnabled()) {
-                logger.finest("Starting TcpIpAcceptor on " + registry);
+                logger.finest("Starting TcpIpAcceptor on " + endpoint);
             }
 
             try {
                 selector = Selector.open();
-                for (ServerSocketRegistry.Pair entry : registry) {
-                    ServerSocketChannel serverSocketChannel = entry.getChannel();
+                serverSocketChannel.configureBlocking(false);
+                selectionKey = serverSocketChannel.register(selector, OP_ACCEPT);
 
-                    serverSocketChannel.configureBlocking(false);
-                    SelectionKey selectionKey = serverSocketChannel.register(selector, OP_ACCEPT);
-                    selectionKey.attach(entry);
-                    selectionKeys.add(selectionKey);
-                }
                 if (selectorWorkaround) {
                     acceptLoopWithSelectorFix();
                 } else {
@@ -215,20 +209,11 @@ public class TcpIpAcceptor implements MetricsProvider {
         private void rebuildSelector() throws IOException {
             selectorRecreateCount.inc();
             // cancel existing selection key, register new one on the new selector
-            for (SelectionKey key : selectionKeys) {
-                key.cancel();
-            }
-            selectionKeys.clear();
+            selectionKey.cancel();
             closeSelector();
             Selector newSelector = Selector.open();
             selector = newSelector;
-            for (ServerSocketRegistry.Pair entry : registry) {
-                ServerSocketChannel serverSocketChannel = entry.getChannel();
-
-                SelectionKey selectionKey = serverSocketChannel.register(newSelector, OP_ACCEPT);
-                selectionKey.attach(entry);
-                selectionKeys.add(selectionKey);
-            }
+            selectionKey = serverSocketChannel.register(newSelector, OP_ACCEPT);
         }
 
         private void handleSelectionKeys(Iterator<SelectionKey> it) {
@@ -239,9 +224,7 @@ public class TcpIpAcceptor implements MetricsProvider {
                 // of course it is acceptable!
                 if (sk.isValid() && sk.isAcceptable()) {
                     eventCount.inc();
-                    ServerSocketRegistry.Pair attachment = (ServerSocketRegistry.Pair) sk.attachment();
-                    ServerSocketChannel serverSocketChannel = attachment.getChannel();
-                    acceptSocket(attachment.getQualifier(), serverSocketChannel);
+                    acceptSocket();
                 }
             }
         }
@@ -262,20 +245,18 @@ public class TcpIpAcceptor implements MetricsProvider {
             }
         }
 
-        private void acceptSocket(final EndpointQualifier qualifier, ServerSocketChannel serverSocketChannel) {
+        private void acceptSocket() {
             Channel channel = null;
-            TcpIpEndpointManager endpointManager = null;
             try {
                 SocketChannel socketChannel = serverSocketChannel.accept();
-                endpointManager = (TcpIpEndpointManager) networkingService.getUnifiedOrDedicatedEndpointManager(qualifier);
 
                 if (socketChannel != null) {
-                    channel = endpointManager.newChannel(socketChannel, false);
+                    channel = endpoint.newChannel(socketChannel, false);
                 }
             } catch (Exception e) {
                 exceptionCount.inc();
 
-                if (e instanceof ClosedChannelException && !networkingService.isLive()) {
+                if (e instanceof ClosedChannelException && !endpoint.getNetworkingService().isLive()) {
                     // ClosedChannelException
                     // or AsynchronousCloseException
                     // or ClosedByInterruptException
@@ -297,16 +278,15 @@ public class TcpIpAcceptor implements MetricsProvider {
                 if (logger.isFineEnabled()) {
                     logger.fine("Accepting socket connection from " + theChannel.socket().getRemoteSocketAddress());
                 }
-                if (ioService.isSocketInterceptorEnabled(qualifier)) {
-                    final TcpIpEndpointManager finalEndpointManager = endpointManager;
+                if (ioService.isSocketInterceptorEnabled(endpoint.getEndpointQualifier())) {
                     ioService.executeAsync(new Runnable() {
                         @Override
                         public void run() {
-                            configureAndAssignSocket(finalEndpointManager, theChannel);
+                            configureAndAssignSocket(endpoint, theChannel);
                         }
                     });
                 } else {
-                    configureAndAssignSocket(endpointManager, theChannel);
+                    configureAndAssignSocket(endpoint, theChannel);
                 }
             }
         }

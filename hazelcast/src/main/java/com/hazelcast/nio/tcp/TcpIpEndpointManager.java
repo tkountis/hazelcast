@@ -22,8 +22,10 @@ import com.hazelcast.instance.EndpointQualifier;
 import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.metrics.Probe;
 import com.hazelcast.internal.networking.Channel;
+import com.hazelcast.internal.networking.ChannelErrorHandler;
 import com.hazelcast.internal.networking.ChannelInitializerProvider;
 import com.hazelcast.internal.networking.Networking;
+import com.hazelcast.internal.networking.nio.NioNetworking;
 import com.hazelcast.internal.util.counters.MwCounter;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.LoggingService;
@@ -44,6 +46,7 @@ import com.hazelcast.util.function.Consumer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.io.IOException;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Collection;
 import java.util.HashSet;
@@ -59,10 +62,9 @@ import static com.hazelcast.internal.util.counters.MwCounter.newMwCounter;
 import static com.hazelcast.nio.IOUtil.close;
 import static com.hazelcast.nio.IOUtil.closeResource;
 import static com.hazelcast.nio.IOUtil.setChannelOptions;
+import static com.hazelcast.spi.properties.GroupProperty.*;
 import static com.hazelcast.util.Preconditions.checkNotNull;
-import static java.util.Collections.newSetFromMap;
-import static java.util.Collections.unmodifiableCollection;
-import static java.util.Collections.unmodifiableSet;
+import static java.util.Collections.*;
 
 public class TcpIpEndpointManager
         implements EndpointManager<TcpIpConnection>, Consumer<Packet> {
@@ -81,6 +83,9 @@ public class TcpIpEndpointManager
     final Set<TcpIpConnection> activeConnections = newSetFromMap(new ConcurrentHashMap<TcpIpConnection, Boolean>());
 
     private final ILogger logger;
+    private final MetricsRegistry metricsRegistry;
+    private final ServerSocketChannel serverSocketChannel;
+    private final Networking engine;
     private final IOService ioService;
     private final EndpointConfig endpointConfig;
     private final EndpointQualifier endpointQualifier;
@@ -117,16 +122,27 @@ public class TcpIpEndpointManager
 
     private final EndpointConnectionLifecycleListener connectionLifecycleListener = new EndpointConnectionLifecycleListener();
 
+    // accessed only in synchronized block
+    private volatile TcpIpAcceptor acceptor;
+
     TcpIpEndpointManager(NetworkingService networkingService, EndpointConfig endpointConfig,
-                         ChannelInitializerProvider channelInitializerProvider, IOService ioService,
-                         LoggingService loggingService, MetricsRegistry metricsRegistry,
+                         ServerSocketChannel serverSocketChannel, ChannelInitializerProvider channelInitializerProvider,
+                         IOService ioService, LoggingService loggingService, MetricsRegistry metricsRegistry,
                          HazelcastProperties properties, Set<ProtocolType> supportedProtocolTypes) {
+
+        this.logger = loggingService.getLogger(TcpIpEndpointManager.class);
+        this.metricsRegistry = metricsRegistry;
         this.networkingService = networkingService;
+        this.serverSocketChannel = serverSocketChannel;
         this.endpointConfig = endpointConfig;
         this.endpointQualifier = endpointConfig != null ? endpointConfig.getQualifier() : null;
         this.channelInitializerProvider = channelInitializerProvider;
         this.ioService = ioService;
-        this.logger = loggingService.getLogger(TcpIpEndpointManager.class);
+
+        String namePrefix = endpointQualifier != null
+                ? endpointQualifier.toMetricsPrefixString()
+                : networkingService.getIoService().getHazelcastName();
+        this.engine = createNetworking(loggingService, metricsRegistry, namePrefix, endpointConfig, properties);
         this.connector = new TcpIpConnector(this);
 
         boolean spoofingChecks = properties != null && properties.getBoolean(GroupProperty.BIND_SPOOFING_CHECKS);
@@ -137,6 +153,11 @@ public class TcpIpEndpointManager
         } else {
             metricsRegistry.scanAndRegister(this, endpointQualifier.toMetricsPrefixString() + ".tcp.connection");
         }
+    }
+
+    @Override
+    public Networking getEngine() {
+        return engine;
     }
 
     public NetworkingService getNetworkingService() {
@@ -290,6 +311,45 @@ public class TcpIpEndpointManager
         return send(packet, target, null);
     }
 
+    @Override
+    public void start() {
+        startAcceptor();
+        engine.start();
+    }
+
+    @Override
+    public void stop() {
+        shutdownAcceptor();
+        reset(false);
+        engine.shutdown();
+    }
+
+    @Override
+    public void shutdown() {
+        shutdownAcceptor();
+        reset(true);
+        engine.shutdown();
+    }
+
+    private void startAcceptor() {
+        if (acceptor != null) {
+            logger.warning("TcpIpAcceptor for " + endpointQualifier + " is already running! " +
+                           "Shutting down old acceptor...");
+            shutdownAcceptor();
+        }
+
+        acceptor = new TcpIpAcceptor(serverSocketChannel, this, ioService).start();
+        metricsRegistry.collectMetrics(acceptor);
+    }
+
+    private void shutdownAcceptor() {
+        if (acceptor != null) {
+            acceptor.shutdown();
+            metricsRegistry.deregister(acceptor);
+            acceptor = null;
+        }
+    }
+
     private TcpIpConnectionErrorHandler getErrorHandler(Address endpoint, boolean reset) {
         TcpIpConnectionErrorHandler monitor = ConcurrencyUtil.getOrPutIfAbsent(monitors, endpoint, monitorConstructor);
         if (reset) {
@@ -300,8 +360,7 @@ public class TcpIpEndpointManager
 
     Channel newChannel(SocketChannel socketChannel, boolean clientMode)
             throws IOException {
-        Networking networking = getNetworkingService().getNetworking();
-        Channel channel = networking.register(endpointQualifier, channelInitializerProvider, socketChannel, clientMode);
+        Channel channel = engine.register(endpointQualifier, channelInitializerProvider, socketChannel, clientMode);
         // Advanced Network
         if (endpointConfig != null) {
             setChannelOptions(channel, endpointConfig);
@@ -379,6 +438,35 @@ public class TcpIpEndpointManager
     @Override
     public String toString() {
         return "TcpIpEndpointManager{" + "endpointQualifier=" + endpointQualifier + ", connectionsMap=" + connectionsMap + '}';
+    }
+
+    private Networking createNetworking(LoggingService loggingService, MetricsRegistry metricsRegistry,
+                                        String threadNamePrefix, EndpointConfig config,
+                                        HazelcastProperties properties) {
+
+        ChannelErrorHandler errorHandler = new TcpIpConnectionChannelErrorHandler(loggingService);
+
+        int inThreadCount = config != null
+                ? config.getIoInputThreadCount()
+                : properties.getInteger(IO_INPUT_THREAD_COUNT);
+
+        int outThreadCount = config != null
+                ? config.getIoOutputThreadCount()
+                : properties.getInteger(IO_OUTPUT_THREAD_COUNT);
+
+        int balancerInterval = config != null
+                ? config.getIoBalancerIntervalSeconds()
+                : properties.getInteger(IO_BALANCER_INTERVAL_SECONDS);
+
+        return new NioNetworking(
+                new NioNetworking.Context()
+                        .loggingService(loggingService)
+                        .metricsRegistry(metricsRegistry)
+                        .threadNamePrefix(threadNamePrefix)
+                        .errorHandler(errorHandler)
+                        .inputThreadCount(inThreadCount)
+                        .outputThreadCount(outThreadCount)
+                        .balancerIntervalSeconds(balancerInterval));
     }
 
     // test support

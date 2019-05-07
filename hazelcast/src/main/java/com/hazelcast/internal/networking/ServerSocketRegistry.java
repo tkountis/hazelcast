@@ -71,6 +71,16 @@ public class ServerSocketRegistry
         return entries.iterator();
     }
 
+    public ServerSocketChannel get(EndpointQualifier qualifier) {
+        for (Pair pair : entries) {
+            if (pair.qualifier.equals(qualifier)) {
+                return pair.channel;
+            }
+        }
+
+        throw new IllegalStateException();
+    }
+
     public static final class Pair {
         private final ServerSocketChannel channel;
         private final EndpointQualifier qualifier;

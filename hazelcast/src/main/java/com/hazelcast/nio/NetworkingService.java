@@ -35,11 +35,11 @@ public interface NetworkingService<T extends Connection> {
      */
     IOService getIoService();
 
-    /**
-     * Returns the Networking engine
-     * Shared across the multiple (or not) endpoints
-     */
-    Networking getNetworking();
+//    /**
+//     * Returns the Networking engine
+//     * Shared across the multiple (or not) endpoints
+//     */
+//    Networking getNetworking();
 
     /**
      * Return an aggregate endpoint which acts as a view of all endpoints merged together for reporting purposes
@@ -54,7 +54,7 @@ public interface NetworkingService<T extends Connection> {
      * eg.
      * {@link com.hazelcast.instance.ProtocolType#MEMBER} -> {@link com.hazelcast.nio.tcp.MemberViewUnifiedEndpointManager}
      * {@link com.hazelcast.instance.ProtocolType#CLIENT} -> {@link com.hazelcast.nio.tcp.ClientViewUnifiedEndpointManager}
-     * {@link com.hazelcast.instance.ProtocolType#TEXT} -> {@link com.hazelcast.nio.tcp.TextViewUnifiedEndpointManager}
+     * {@link com.hazelcast.instance.ProtocolType#REST} -> {@link com.hazelcast.nio.tcp.TextViewUnifiedEndpointManager}
      */
     EndpointManager<T> getEndpointManager(EndpointQualifier qualifier);
 

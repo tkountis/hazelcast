@@ -118,6 +118,26 @@ public abstract class AbstractOutOfMemoryHandlerTest extends HazelcastTestSuppor
             public void accept(Object o) {
 
             }
+
+            @Override
+            public Networking getEngine() {
+                return null;
+            }
+
+            @Override
+            public void start() {
+
+            }
+
+            @Override
+            public void stop() {
+
+            }
+
+            @Override
+            public void shutdown() {
+
+            }
         };
 
         private void switchToDummyMode() {
@@ -142,11 +162,6 @@ public abstract class AbstractOutOfMemoryHandlerTest extends HazelcastTestSuppor
         @Override
         public void scheduleDeferred(Runnable task, long delay, TimeUnit unit) {
 
-        }
-
-        @Override
-        public Networking getNetworking() {
-            return null;
         }
 
         @Override

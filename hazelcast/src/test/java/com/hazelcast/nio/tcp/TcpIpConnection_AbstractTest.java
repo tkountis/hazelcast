@@ -140,7 +140,7 @@ public abstract class TcpIpConnection_AbstractTest extends HazelcastTestSupport 
                 registry,
                 ioService.loggingService,
                 metricsRegistry,
-                networkingFactory.create(ioService, metricsRegistry),
+//                networkingFactory.create(ioService, metricsRegistry),
                 new ChannelInitializerProvider() {
                     @Override
                     public ChannelInitializer provide(EndpointQualifier qualifier) {

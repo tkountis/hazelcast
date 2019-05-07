@@ -155,8 +155,8 @@ public class IOBalancerStressTest extends HazelcastTestSupport {
     }
 
     private String debug(HazelcastInstance hz) {
-        NioNetworking threadingModel = (NioNetworking) getNode(hz).getNetworkingService().getNetworking();
         EndpointManager<TcpIpConnection> em = getNode(hz).getEndpointManager();
+        NioNetworking threadingModel = (NioNetworking) em.getEngine();
 
         StringBuilder sb = new StringBuilder();
         sb.append("in owners\n");

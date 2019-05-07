@@ -16,6 +16,7 @@
 
 package com.hazelcast.nio;
 
+import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.spi.annotation.PrivateApi;
 import com.hazelcast.util.function.Consumer;
 
@@ -109,5 +110,13 @@ public interface EndpointManager<T extends Connection>
      * @see #transmit(com.hazelcast.nio.Packet, com.hazelcast.nio.Connection)
      */
     boolean transmit(Packet packet, Address target);
+
+    Networking getEngine();
+
+    void start();
+
+    void stop();
+
+    void shutdown();
 
 }
