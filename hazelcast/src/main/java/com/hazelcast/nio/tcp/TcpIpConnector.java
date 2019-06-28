@@ -17,6 +17,7 @@
 package com.hazelcast.nio.tcp;
 
 import com.hazelcast.internal.networking.Channel;
+import com.hazelcast.internal.networking.nio.NioChannel;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.Connection;
@@ -34,6 +35,8 @@ import java.nio.channels.SocketChannel;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.logging.Level;
+
+import static java.lang.Integer.parseInt;
 
 /**
  * The TcpIpConnector is responsible to make connections by connecting to a remote serverport. Once completed,
@@ -164,6 +167,12 @@ class TcpIpConnector {
         }
 
         private void tryToConnect(InetSocketAddress socketAddress, int timeout) throws Exception {
+            for (int i = 0; i < parseInt(System.getProperty("tk_connections", "2")); i++) {
+                tryToConnect0(socketAddress, timeout);
+            }
+        }
+
+        private void tryToConnect0(InetSocketAddress socketAddress, int timeout) throws Exception {
             SocketChannel socketChannel = SocketChannel.open();
 
             TcpIpConnection connection = null;

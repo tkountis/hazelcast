@@ -21,11 +21,7 @@ import com.hazelcast.instance.ProtocolType;
 import com.hazelcast.internal.cluster.impl.BindMessage;
 import com.hazelcast.internal.cluster.impl.ExtendedBindMessage;
 import com.hazelcast.logging.ILogger;
-import com.hazelcast.nio.Address;
-import com.hazelcast.nio.Connection;
-import com.hazelcast.nio.ConnectionType;
-import com.hazelcast.nio.IOService;
-import com.hazelcast.nio.Packet;
+import com.hazelcast.nio.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.net.InetAddress;
@@ -196,7 +192,13 @@ final class BindHandler {
                 if (logger.isLoggable(Level.FINEST)) {
                     logger.finest("Registering connection " + connection + " to address alias " + remoteAddressAlias);
                 }
-                tcpIpEndpointManager.connectionsMap.putIfAbsent(remoteAddressAlias, connection);
+                TcpIpConnectionPool pool = tcpIpEndpointManager.connectionsMap.get(remoteAddressAlias);
+                if (pool == null) {
+                    pool = new TcpIpConnectionPool();
+                    tcpIpEndpointManager.connectionsMap.putIfAbsent(remoteAddressAlias, pool);
+                }
+
+                pool.add(connection);
             }
         }
 
@@ -245,17 +247,18 @@ final class BindHandler {
     }
 
     private boolean checkAlreadyConnected(TcpIpConnection connection, Address remoteEndPoint) {
-        final Connection existingConnection = tcpIpEndpointManager.getConnection(remoteEndPoint);
-        if (existingConnection != null && existingConnection.isAlive()) {
-            if (existingConnection != connection) {
-                if (logger.isFinestEnabled()) {
-                    logger.finest(existingConnection + " is already bound to " + remoteEndPoint + ", new one is " + connection);
-                }
-                // todo probably it's already in activeConnections (ConnectTask , AcceptorIOThread)
-                tcpIpEndpointManager.activeConnections.add(connection);
-            }
-            return true;
-        }
+        //todo more sophisticated when pooling in play
+//        final Connection existingConnection = tcpIpEndpointManager.getConnection(remoteEndPoint);
+//        if (existingConnection != null && existingConnection.isAlive()) {
+//            if (existingConnection != connection) {
+//                if (logger.isFinestEnabled()) {
+//                    logger.finest(existingConnection + " is already bound to " + remoteEndPoint + ", new one is " + connection);
+//                }
+//                // todo probably it's already in activeConnections (ConnectTask , AcceptorIOThread)
+//                tcpIpEndpointManager.activeConnections.add(connection);
+//            }
+//            return true;
+//        }
         return false;
     }
 

@@ -27,14 +27,7 @@ import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.internal.util.counters.MwCounter;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.LoggingService;
-import com.hazelcast.nio.Address;
-import com.hazelcast.nio.Connection;
-import com.hazelcast.nio.ConnectionLifecycleListener;
-import com.hazelcast.nio.ConnectionListener;
-import com.hazelcast.nio.EndpointManager;
-import com.hazelcast.nio.IOService;
-import com.hazelcast.nio.NetworkingService;
-import com.hazelcast.nio.Packet;
+import com.hazelcast.nio.*;
 import com.hazelcast.spi.properties.GroupProperty;
 import com.hazelcast.spi.properties.HazelcastProperties;
 import com.hazelcast.util.ConcurrencyUtil;
@@ -60,8 +53,8 @@ import static com.hazelcast.nio.IOUtil.close;
 import static com.hazelcast.nio.IOUtil.closeResource;
 import static com.hazelcast.nio.IOUtil.setChannelOptions;
 import static com.hazelcast.util.Preconditions.checkNotNull;
+import static java.lang.Integer.parseInt;
 import static java.util.Collections.newSetFromMap;
-import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 
 public class TcpIpEndpointManager
@@ -74,8 +67,8 @@ public class TcpIpEndpointManager
     final Set<Address> connectionsInProgress = newSetFromMap(new ConcurrentHashMap<Address, Boolean>());
 
     @Probe(name = "count", level = MANDATORY)
-    final ConcurrentHashMap<Address, TcpIpConnection> connectionsMap =
-            new ConcurrentHashMap<Address, TcpIpConnection>(100);
+    final ConcurrentHashMap<Address, TcpIpConnectionPool> connectionsMap =
+            new ConcurrentHashMap<Address, TcpIpConnectionPool>(100);
 
     @Probe(name = "activeCount", level = MANDATORY)
     final Set<TcpIpConnection> activeConnections = newSetFromMap(new ConcurrentHashMap<TcpIpConnection, Boolean>());
@@ -152,7 +145,12 @@ public class TcpIpEndpointManager
     }
 
     public Collection<TcpIpConnection> getConnections() {
-        return unmodifiableCollection(new HashSet<TcpIpConnection>(connectionsMap.values()));
+        Set<TcpIpConnection> connections = new HashSet<>();
+        for (TcpIpConnectionPool pool : connectionsMap.values()) {
+            connections.addAll(pool.getAll());
+        }
+
+        return connections;
     }
 
     @Override
@@ -168,7 +166,7 @@ public class TcpIpEndpointManager
 
     @Override
     public TcpIpConnection getConnection(Address address) {
-        return connectionsMap.get(address);
+        return connectionsMap.get(address) == null ? null : connectionsMap.get(address).get();
     }
 
     @Override
@@ -178,13 +176,13 @@ public class TcpIpEndpointManager
 
     @Override
     public TcpIpConnection getOrConnect(final Address address, final boolean silent) {
-        TcpIpConnection connection = connectionsMap.get(address);
-        if (connection == null && networkingService.isLive()) {
+        TcpIpConnectionPool pool = connectionsMap.get(address);
+        if (pool == null && networkingService.isLive()) {
             if (connectionsInProgress.add(address)) {
                 connector.asyncConnect(address, silent);
             }
         }
-        return connection;
+        return pool == null ? null : pool.get();
     }
 
     @Override
@@ -211,7 +209,14 @@ public class TcpIpEndpointManager
                 TcpIpConnectionErrorHandler connectionMonitor = getErrorHandler(remoteEndPoint, true);
                 connection.setErrorHandler(connectionMonitor);
             }
-            connectionsMap.put(remoteEndPoint, connection);
+
+            TcpIpConnectionPool pool = connectionsMap.get(remoteEndPoint);
+            if (pool == null) {
+                pool = new TcpIpConnectionPool();
+                connectionsMap.put(remoteEndPoint, pool);
+            }
+
+            pool.add(connection);
 
             ioService.getEventService().executeEventCallback(new StripedRunnable() {
                 @Override
@@ -228,7 +233,10 @@ public class TcpIpEndpointManager
             });
             return true;
         } finally {
-            connectionsInProgress.remove(remoteEndPoint);
+            //todo remove only when the pool is of size
+            if (connectionsMap.get(remoteEndPoint).size() == parseInt(System.getProperty("tk_connections", "2"))) {
+                connectionsInProgress.remove(remoteEndPoint);
+            }
         }
     }
 
@@ -254,7 +262,8 @@ public class TcpIpEndpointManager
         for (Channel socketChannel : acceptedChannels) {
             closeResource(socketChannel);
         }
-        for (Connection conn : connectionsMap.values()) {
+        for (TcpIpConnectionPool pool : connectionsMap.values()) {
+            for (Connection conn : pool)
             close(conn, "EndpointManager is stopping");
         }
         for (Connection conn : activeConnections) {
