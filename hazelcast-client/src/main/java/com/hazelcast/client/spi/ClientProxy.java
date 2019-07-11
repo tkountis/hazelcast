@@ -196,6 +196,15 @@ public abstract class ClientProxy implements DistributedObject {
         }
     }
 
+    protected <T> T invokeOnPartitionReplica(ClientMessage clientMessage, int partitionId, int replicaIndex) {
+        try {
+            final Future future = new ClientInvocation(getClient(), clientMessage, getName(), partitionId, replicaIndex).invoke();
+            return (T) future.get();
+        } catch (Exception e) {
+            throw rethrow(e);
+        }
+    }
+
     protected <T> T invokeOnAddress(ClientMessage clientMessage, Address address) {
         try {
             final Future future = new ClientInvocation(getClient(), clientMessage, getName(), address).invoke();

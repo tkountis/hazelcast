@@ -36,6 +36,8 @@ public interface ClientInvocationService {
 
     void invokeOnPartitionOwner(ClientInvocation invocation, int partitionId) throws IOException;
 
+    void invokeOnPartitionReplica(ClientInvocation invocation, int partitionId, int replicaIndex) throws IOException;
+
     void invokeOnRandomTarget(ClientInvocation invocation) throws IOException;
 
     void invokeOnTarget(ClientInvocation invocation, Address target) throws IOException;

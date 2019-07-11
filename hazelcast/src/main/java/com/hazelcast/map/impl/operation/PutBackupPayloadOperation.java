@@ -18,10 +18,15 @@ package com.hazelcast.map.impl.operation;
 
 import com.hazelcast.internal.partition.DelayedBackupContainer;
 import com.hazelcast.internal.partition.impl.InternalPartitionServiceImpl;
+import com.hazelcast.nio.ObjectDataInput;
+import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.PartitionAwareOperation;
 import com.hazelcast.spi.impl.operationservice.impl.operations.Backup;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 
 public class PutBackupPayloadOperation
         extends Operation
@@ -29,6 +34,9 @@ public class PutBackupPayloadOperation
 
     private long payloadId;
     private Data payload;
+
+    public PutBackupPayloadOperation() {
+    }
 
     public PutBackupPayloadOperation(long payloadId, Data payload) {
         this.payloadId = payloadId;
@@ -44,5 +52,15 @@ public class PutBackupPayloadOperation
             backup.doRunBackup();
             backup.afterRun();
         }
+    }
+
+    @Override
+    protected void writeInternal(ObjectDataOutput out) throws IOException {
+        throw new UnsupportedEncodingException();
+    }
+
+    @Override
+    protected void readInternal(ObjectDataInput in) throws IOException {
+        throw new UnsupportedEncodingException();
     }
 }

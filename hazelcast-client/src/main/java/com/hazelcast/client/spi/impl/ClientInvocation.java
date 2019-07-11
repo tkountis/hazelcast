@@ -66,6 +66,7 @@ public class ClientInvocation implements Runnable {
     private final ClientExecutionService executionService;
     private volatile ClientMessage clientMessage;
     private final CallIdSequence callIdSequence;
+    private final int replicaIndex;
     private final Address address;
     private final int partitionId;
     private final Connection connection;
@@ -81,6 +82,7 @@ public class ClientInvocation implements Runnable {
                                ClientMessage clientMessage,
                                String objectName,
                                int partitionId,
+                               int replicaIndex,
                                Address address,
                                Connection connection) {
         this.clientClusterService = client.getClientClusterService();
@@ -90,6 +92,7 @@ public class ClientInvocation implements Runnable {
         this.objectName = objectName;
         this.clientMessage = clientMessage;
         this.partitionId = partitionId;
+        this.replicaIndex = replicaIndex;
         this.address = address;
         this.connection = connection;
         this.startTimeMillis = System.currentTimeMillis();
@@ -105,7 +108,7 @@ public class ClientInvocation implements Runnable {
      * Create an invocation that will be executed on random member.
      */
     public ClientInvocation(HazelcastClientInstanceImpl client, ClientMessage clientMessage, String objectName) {
-        this(client, clientMessage, objectName, UNASSIGNED_PARTITION, null, null);
+        this(client, clientMessage, objectName, UNASSIGNED_PARTITION, 0, null, null);
     }
 
     /**
@@ -113,7 +116,12 @@ public class ClientInvocation implements Runnable {
      */
     public ClientInvocation(HazelcastClientInstanceImpl client, ClientMessage clientMessage, String objectName,
                             int partitionId) {
-        this(client, clientMessage, objectName, partitionId, null, null);
+        this(client, clientMessage, objectName, partitionId, 0, null, null);
+    }
+
+    public ClientInvocation(HazelcastClientInstanceImpl client, ClientMessage clientMessage, String objectName,
+            int partitionId, int replicaIndex) {
+        this(client, clientMessage, objectName, partitionId, replicaIndex, null, null);
     }
 
     /**
@@ -121,7 +129,7 @@ public class ClientInvocation implements Runnable {
      */
     public ClientInvocation(HazelcastClientInstanceImpl client, ClientMessage clientMessage, String objectName,
                             Address address) {
-        this(client, clientMessage, objectName, UNASSIGNED_PARTITION, address, null);
+        this(client, clientMessage, objectName, UNASSIGNED_PARTITION, 0, address, null);
     }
 
     /**
@@ -129,7 +137,7 @@ public class ClientInvocation implements Runnable {
      */
     public ClientInvocation(HazelcastClientInstanceImpl client, ClientMessage clientMessage, String objectName,
                             Connection connection) {
-        this(client, clientMessage, objectName, UNASSIGNED_PARTITION, null, connection);
+        this(client, clientMessage, objectName, UNASSIGNED_PARTITION, 0, null, connection);
     }
 
     public int getPartitionId() {
@@ -160,7 +168,11 @@ public class ClientInvocation implements Runnable {
             if (isBindToSingleConnection()) {
                 invocationService.invokeOnConnection(this, (ClientConnection) connection);
             } else if (partitionId != -1) {
-                invocationService.invokeOnPartitionOwner(this, partitionId);
+                if (replicaIndex == 0) {
+                    invocationService.invokeOnPartitionOwner(this, partitionId);
+                } else {
+                    invocationService.invokeOnPartitionReplica(this, partitionId, replicaIndex);
+                }
             } else if (address != null) {
                 invocationService.invokeOnTarget(this, address);
             } else {

@@ -460,9 +460,11 @@ public class ClientMapProxy<K, V> extends ClientProxy
         Data valueData = toData(value);
         long ttlMillis = timeInMsOrOneIfResultIsZero(ttl, ttlUnit);
 
+        int partitionId = getContext().getPartitionService().getPartitionId(key);
+
         long backupPayloadId = HashUtil.hashCode(key);
         ClientMessage backupPayloadRequest = MapPutBackupPayloadCodec.encodeRequest(backupPayloadId, valueData);
-        invokeOnAddress(backupPayloadRequest, null); //todo waiting Mehmet
+        invokeOnPartitionReplica(backupPayloadRequest, partitionId, 1);
 
         ClientMessage request;
         if (maxIdle != null) {
@@ -472,7 +474,7 @@ public class ClientMapProxy<K, V> extends ClientProxy
             request = MapPutCodec.encodeRequest(name, keyData, valueData, getThreadId(), ttlMillis, backupPayloadId);
         }
 
-        ClientMessage response = invoke(request, keyData);
+        ClientMessage response = invokeOnPartition(request, partitionId);
         MapPutCodec.ResponseParameters resultParameters = MapPutCodec.decodeResponse(response);
         return toObject(resultParameters.response);
     }

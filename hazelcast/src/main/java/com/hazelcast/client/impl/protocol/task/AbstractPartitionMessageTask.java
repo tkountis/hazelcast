@@ -57,7 +57,7 @@ public abstract class AbstractPartitionMessageTask<P>
     }
 
     @Override
-    public final void processMessage() {
+    public void processMessage() {
         beforeProcess();
         Operation op = prepareOperation();
         op.setCallerUuid(endpoint.getUuid());

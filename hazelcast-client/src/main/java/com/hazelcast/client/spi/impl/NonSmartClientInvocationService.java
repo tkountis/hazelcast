@@ -46,6 +46,11 @@ public class NonSmartClientInvocationService extends AbstractClientInvocationSer
     }
 
     @Override
+    public void invokeOnPartitionReplica(ClientInvocation invocation, int partitionId, int replicaIndex) throws IOException {
+        invokeOnPartitionOwner(invocation, partitionId);
+    }
+
+    @Override
     public void invokeOnTarget(ClientInvocation invocation, Address target) throws IOException {
         send(invocation, getOwnerConnection());
     }

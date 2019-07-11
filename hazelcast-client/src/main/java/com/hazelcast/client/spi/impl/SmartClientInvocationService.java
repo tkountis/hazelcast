@@ -37,9 +37,14 @@ public class SmartClientInvocationService extends AbstractClientInvocationServic
 
     @Override
     public void invokeOnPartitionOwner(ClientInvocation invocation, int partitionId) throws IOException {
-        final Address owner = partitionService.getPartitionOwner(partitionId);
+        invokeOnPartitionReplica(invocation, partitionId, 0);
+    }
+
+    @Override
+    public void invokeOnPartitionReplica(ClientInvocation invocation, int partitionId, int replicaIndex) throws IOException {
+        final Address owner = partitionService.getReplicaOwner(partitionId, replicaIndex);
         if (owner == null) {
-            throw new IOException("Partition does not have an owner. partitionId: " + partitionId);
+            throw new IOException("Partition does not have an owner. partitionId: " + partitionId + ", replicaIndex" + replicaIndex);
         }
         if (!isMember(owner)) {
             throw new TargetNotMemberException("Partition owner '" + owner + "' is not a member.");
