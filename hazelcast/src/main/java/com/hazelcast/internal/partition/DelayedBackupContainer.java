@@ -48,7 +48,7 @@ public class DelayedBackupContainer {
             }
 
             BackupOperation operation = (BackupOperation) backup.getBackupOp();
-            Object otherPayload = payloads.get(operation.getPayloadId());
+            Object otherPayload = payloads.remove(operation.getPayloadId());
             if (otherPayload == null) {
                 break;
             }
