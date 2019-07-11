@@ -37,7 +37,7 @@ public class MapPutMessageTask
 
     @Override
     protected Operation prepareOperation() {
-        Long payloadId = null;
+        long payloadId = 0L;
         if (parameters.payloadIdExist) {
             payloadId = parameters.payloadId;
         }
