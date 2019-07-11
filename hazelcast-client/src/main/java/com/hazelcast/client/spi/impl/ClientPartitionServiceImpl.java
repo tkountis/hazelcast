@@ -20,7 +20,6 @@ import com.hazelcast.client.connection.ClientConnectionManager;
 import com.hazelcast.client.impl.ClientPartitionListenerService;
 import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
 import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.codec.ClientAddPartitionListenerCodec;
 import com.hazelcast.client.impl.protocol.codec.ClientGetPartitionsCodec;
 import com.hazelcast.client.spi.ClientClusterService;
 import com.hazelcast.client.spi.ClientPartitionService;
@@ -29,21 +28,25 @@ import com.hazelcast.client.spi.impl.listener.AbstractClientListenerService;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.cluster.memberselector.MemberSelectors;
 import com.hazelcast.core.ExecutionCallback;
-import com.hazelcast.partition.Partition;
+import com.hazelcast.cp.internal.util.Tuple2;
 import com.hazelcast.internal.cluster.impl.MemberSelectingCollection;
+import com.hazelcast.internal.partition.InternalPartition;
 import com.hazelcast.internal.partition.PartitionTableView;
+import com.hazelcast.internal.partition.client.ClientAddPartitionTableListenerCodec;
+import com.hazelcast.internal.partition.client.ClientGetPartitionTableCodec;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.Connection;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.partition.NoDataMemberInClusterException;
+import com.hazelcast.partition.Partition;
 import com.hazelcast.util.ExceptionUtil;
 import com.hazelcast.util.HashUtil;
-import com.hazelcast.util.collection.Int2ObjectHashMap;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -63,7 +66,7 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
     private final HazelcastClientInstanceImpl client;
     private final ILogger logger;
     private final AtomicReference<PartitionTable> partitionTable =
-            new AtomicReference<PartitionTable>(new PartitionTable(null, -1, new Int2ObjectHashMap<Address>()));
+            new AtomicReference<>(new PartitionTable(null, -1, new Address[0][InternalPartition.MAX_REPLICA_COUNT]));
     private volatile int partitionCount;
     private volatile long lastCorrelationId = -1;
 
@@ -81,9 +84,9 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
     private static class PartitionTable {
         final Connection connection;
         final int partitionSateVersion;
-        final Int2ObjectHashMap<Address> partitions;
+        final Address[][] partitions;
 
-        PartitionTable(Connection connection, int partitionSateVersion, Int2ObjectHashMap<Address> partitions) {
+        PartitionTable(Connection connection, int partitionSateVersion, Address[][] partitions) {
             this.connection = connection;
             this.partitionSateVersion = partitionSateVersion;
             this.partitions = partitions;
@@ -95,10 +98,10 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
         //we are keeping the partition map as is because, user may want its operations run on connected members even if
         //owner connection is gone, and partition table is missing.
         // See @{link com.hazelcast.client.spi.properties.ClientProperty#ALLOW_INVOCATIONS_WHEN_DISCONNECTED}
-        Int2ObjectHashMap<Address> partitions = getPartitions();
+        Address[][] partitions = getPartitions();
         partitionTable.set(new PartitionTable(ownerConnection, -1, partitions));
 
-        ClientMessage clientMessage = ClientAddPartitionListenerCodec.encodeRequest();
+        ClientMessage clientMessage = ClientAddPartitionTableListenerCodec.encodeRequest();
         ClientInvocation invocation = new ClientInvocation(client, clientMessage, null, ownerConnection);
         invocation.setEventHandler(new PartitionEventHandler(ownerConnection));
         invocation.invokeUrgent().get();
@@ -140,8 +143,8 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
                     new ClientInvocation(client, requestMessage, null, currentOwnerConnection).invokeUrgent();
             try {
                 ClientMessage responseMessage = future.get();
-                ClientGetPartitionsCodec.ResponseParameters response =
-                        ClientGetPartitionsCodec.decodeResponse(responseMessage);
+                ClientGetPartitionTableCodec.ResponseParameters response =
+                        ClientGetPartitionTableCodec.decodeResponse(responseMessage);
                 Connection connection = responseMessage.getConnection();
                 processPartitionResponse(connection, response.partitions,
                         response.partitionStateVersion, response.partitionStateVersionExist);
@@ -170,7 +173,7 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
      * The partitions can be empty on the response, client will not apply the empty partition table,
      * see {@link ClientPartitionListenerService#getPartitions(PartitionTableView)}
      */
-    private void processPartitionResponse(Connection connection, Collection<Map.Entry<Address, List<Integer>>> partitions,
+    private void processPartitionResponse(Connection connection, Collection<Map.Entry<Address, List<Tuple2<Integer, Integer>>>> partitions,
                                           int partitionStateVersion,
                                           boolean partitionStateVersionExist) {
 
@@ -179,18 +182,18 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
             if (!shouldBeApplied(connection, partitions, partitionStateVersion, partitionStateVersionExist, current)) {
                 return;
             }
-            Int2ObjectHashMap<Address> newPartitions = convertToPartitionToAddressMap(partitions);
+            Address[][] newPartitions = convertToPartitionToAddressMap(partitions);
             PartitionTable newMetaData = new PartitionTable(connection, partitionStateVersion, newPartitions);
             if (this.partitionTable.compareAndSet(current, newMetaData)) {
                 // partition count is set once at the start. Even if we reset the partition table when switching cluster
                 //we want to remember the partition count. That is why it is a different field.
                 if (partitionCount == 0) {
-                    partitionCount = newPartitions.size();
+                    partitionCount = newPartitions.length;
                 }
                 if (logger.isFinestEnabled()) {
                     logger.finest("Processed partition response. partitionStateVersion : "
                             + (partitionStateVersionExist ? partitionStateVersion : "NotAvailable")
-                            + ", partitionCount :" + newPartitions.size() + ", connection : " + connection);
+                            + ", partitionCount :" + newPartitions.length + ", connection : " + connection);
                 }
                 return;
             }
@@ -198,7 +201,7 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
         }
     }
 
-    private boolean shouldBeApplied(Connection connection, Collection<Map.Entry<Address, List<Integer>>> partitions,
+    private boolean shouldBeApplied(Connection connection, Collection<Entry<Address, List<Tuple2<Integer, Integer>>>> partitions,
                                     int partitionStateVersion, boolean partitionStateVersionExist, PartitionTable current) {
         if (partitions.isEmpty()) {
             if (logger.isFinestEnabled()) {
@@ -234,27 +237,37 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
                 + ". Current state version: " + current.partitionSateVersion));
     }
 
-    private Int2ObjectHashMap<Address> convertToPartitionToAddressMap(Collection<Map.Entry<Address, List<Integer>>> partitions) {
-        Int2ObjectHashMap<Address> newPartitions = new Int2ObjectHashMap<Address>();
-        for (Map.Entry<Address, List<Integer>> entry : partitions) {
+    private Address[][] convertToPartitionToAddressMap(Collection<Entry<Address, List<Tuple2<Integer, Integer>>>> partitions) {
+        int partitionCount = partitions.stream().flatMap(e -> e.getValue().stream()).mapToInt(t -> t.element1).max().orElse(0) + 1;
+        Address[][] newPartitions = new Address[partitionCount][InternalPartition.MAX_REPLICA_COUNT];
+        for (Entry<Address, List<Tuple2<Integer, Integer>>> entry : partitions) {
             Address address = entry.getKey();
-            for (Integer partition : entry.getValue()) {
-                newPartitions.put(partition, address);
+            for (Tuple2<Integer, Integer> partition : entry.getValue()) {
+                newPartitions[partition.element1][partition.element2] = address;
             }
         }
         return newPartitions;
     }
 
     public void reset() {
-        partitionTable.set(new PartitionTable(null, -1, new Int2ObjectHashMap<Address>()));
+        partitionTable.set(new PartitionTable(null, -1, new Address[partitionCount][InternalPartition.MAX_REPLICA_COUNT]));
     }
 
     @Override
     public Address getPartitionOwner(int partitionId) {
-        return getPartitions().get(partitionId);
+        return getReplicaOwner(partitionId, 0);
     }
 
-    private Int2ObjectHashMap<Address> getPartitions() {
+    @Override
+    public Address getReplicaOwner(int partitionId, int replicaIndex) {
+        Address[][] partitions = getPartitions();
+        if (partitions.length <= partitionId) {
+            return null;
+        }
+        return partitions[partitionId][replicaIndex];
+    }
+
+    private Address[][] getPartitions() {
         return partitionTable.get().partitions;
     }
 
@@ -315,7 +328,7 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
         }
     }
 
-    private final class PartitionEventHandler extends ClientAddPartitionListenerCodec.AbstractEventHandler
+    private final class PartitionEventHandler extends ClientAddPartitionTableListenerCodec.AbstractEventHandler
             implements EventHandler<ClientMessage> {
 
         private final Connection clientConnection;
@@ -325,7 +338,8 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
         }
 
         @Override
-        public void handlePartitionsEventV15(Collection<Map.Entry<Address, List<Integer>>> response, int stateVersion) {
+        public void handlePartitionsEventV15(Collection<Entry<Address, List<Tuple2<Integer, Integer>>>> response,
+                int stateVersion) {
             processPartitionResponse(clientConnection, response, stateVersion, true);
         }
 
@@ -372,7 +386,7 @@ public final class ClientPartitionServiceImpl implements ClientPartitionService 
                 return;
             }
             Connection connection = responseMessage.getConnection();
-            ClientGetPartitionsCodec.ResponseParameters response = ClientGetPartitionsCodec.decodeResponse(responseMessage);
+            ClientGetPartitionTableCodec.ResponseParameters response = ClientGetPartitionTableCodec.decodeResponse(responseMessage);
             processPartitionResponse(connection, response.partitions,
                     response.partitionStateVersion, response.partitionStateVersionExist);
         }

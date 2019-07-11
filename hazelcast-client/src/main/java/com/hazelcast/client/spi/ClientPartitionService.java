@@ -29,6 +29,8 @@ public interface ClientPartitionService {
 
     Address getPartitionOwner(int partitionId);
 
+    Address getReplicaOwner(int partitionId, int replicaIndex);
+
     int getPartitionId(Data key);
 
     int getPartitionId(Object key);

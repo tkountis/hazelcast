@@ -17,10 +17,12 @@
 package com.hazelcast.client.impl;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.codec.ClientAddPartitionListenerCodec;
 import com.hazelcast.cluster.Member;
+import com.hazelcast.cp.internal.util.Tuple2;
+import com.hazelcast.internal.partition.InternalPartition;
 import com.hazelcast.internal.partition.PartitionReplica;
 import com.hazelcast.internal.partition.PartitionTableView;
+import com.hazelcast.internal.partition.client.ClientAddPartitionTableListenerCodec;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.Connection;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -30,6 +32,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.hazelcast.instance.EndpointQualifier.CLIENT;
@@ -60,9 +63,9 @@ public class ClientPartitionListenerService {
 
     private ClientMessage getPartitionsMessage() {
         PartitionTableView partitionTableView = nodeEngine.getPartitionService().createPartitionTableView();
-        Collection<Map.Entry<Address, List<Integer>>> partitions = getPartitions(partitionTableView);
+        Collection<Entry<Address, List<Tuple2<Integer, Integer>>>> partitions = getPartitions(partitionTableView);
         int partitionStateVersion = partitionTableView.getVersion();
-        ClientMessage clientMessage = ClientAddPartitionListenerCodec.encodePartitionsEvent(partitions, partitionStateVersion);
+        ClientMessage clientMessage = ClientAddPartitionTableListenerCodec.encodePartitionsEvent(partitions, partitionStateVersion);
         clientMessage.addFlag(ClientMessage.BEGIN_AND_END_FLAGS);
         clientMessage.setVersion(ClientMessage.VERSION);
         return clientMessage;
@@ -86,28 +89,31 @@ public class ClientPartitionListenerService {
      * @param partitionTableView will be converted to address-&gt;partitions mapping
      * @return address-&gt;partitions mapping, where address is the client address of the member
      */
-    public Collection<Map.Entry<Address, List<Integer>>> getPartitions(PartitionTableView partitionTableView) {
-
-        Map<Address, List<Integer>> partitionsMap = new HashMap<Address, List<Integer>>();
+    public Collection<Map.Entry<Address, List<Tuple2<Integer, Integer>>>> getPartitions(PartitionTableView partitionTableView) {
+        Map<Address, List<Tuple2<Integer, Integer>>> partitionsMap = new HashMap<>();
 
         int partitionCount = partitionTableView.getLength();
         for (int partitionId = 0; partitionId < partitionCount; partitionId++) {
-            PartitionReplica owner = partitionTableView.getReplica(partitionId, 0);
-            if (owner == null) {
-                partitionsMap.clear();
-                return partitionsMap.entrySet();
+            for (int replicaIndex = 0; replicaIndex < InternalPartition.MAX_REPLICA_COUNT; replicaIndex++) {
+                PartitionReplica owner = partitionTableView.getReplica(partitionId, replicaIndex);
+                if (replicaIndex == 0 && owner == null) {
+                    partitionsMap.clear();
+                    return partitionsMap.entrySet();
+                }
+
+                if (owner == null) {
+                    continue;
+                }
+
+                Address clientOwnerAddress = clientAddressOf(owner.address());
+                if (clientOwnerAddress == null) {
+                    partitionsMap.clear();
+                    return partitionsMap.entrySet();
+                }
+
+                List<Tuple2<Integer, Integer>> indexes = partitionsMap.computeIfAbsent(clientOwnerAddress, k -> new LinkedList<>());
+                indexes.add(Tuple2.of(partitionId, replicaIndex));
             }
-            Address clientOwnerAddress = clientAddressOf(owner.address());
-            if (clientOwnerAddress == null) {
-                partitionsMap.clear();
-                return partitionsMap.entrySet();
-            }
-            List<Integer> indexes = partitionsMap.get(clientOwnerAddress);
-            if (indexes == null) {
-                indexes = new LinkedList<Integer>();
-                partitionsMap.put(clientOwnerAddress, indexes);
-            }
-            indexes.add(partitionId);
         }
         return partitionsMap.entrySet();
     }
