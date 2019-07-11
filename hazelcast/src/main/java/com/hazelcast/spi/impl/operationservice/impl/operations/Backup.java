@@ -60,6 +60,7 @@ public final class Backup extends Operation implements BackupOperation, AllowedD
     private transient Throwable validationFailure;
     private transient boolean backupOperationInitialized;
     private transient InternalPartitionServiceImpl partitionService;
+    private transient boolean delayed;
 
     public Backup() {
     }
@@ -160,9 +161,15 @@ public final class Backup extends Operation implements BackupOperation, AllowedD
 
         DelayedBackupContainer delayedBackupContainer = partitionService.getDelayedBackupContainer(getPartitionId());
         if (delayedBackupContainer.delayIfMissingPayloads(this)) {
+            delayed = true;
             return;
         }
 
+        doRunBackup();
+    }
+
+    public void doRunBackup() throws Exception {
+        delayed = false;
         runDirect(backupOp);
 
         NodeEngineImpl nodeEngine = (NodeEngineImpl) getNodeEngine();
@@ -172,7 +179,7 @@ public final class Backup extends Operation implements BackupOperation, AllowedD
 
     @Override
     public void afterRun() throws Exception {
-        if (validationFailure != null || !sync || getCallId() == 0 || originalCaller == null) {
+        if (validationFailure != null || !sync || getCallId() == 0 || originalCaller == null || delayed) {
             return;
         }
 

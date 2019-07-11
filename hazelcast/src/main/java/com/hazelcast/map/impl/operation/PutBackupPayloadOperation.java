@@ -16,11 +16,12 @@
 
 package com.hazelcast.map.impl.operation;
 
-import com.hazelcast.map.impl.MapDataSerializerHook;
+import com.hazelcast.internal.partition.DelayedBackupContainer;
+import com.hazelcast.internal.partition.impl.InternalPartitionServiceImpl;
 import com.hazelcast.nio.serialization.Data;
-import com.hazelcast.spi.impl.operationservice.MutatingOperation;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.PartitionAwareOperation;
+import com.hazelcast.spi.impl.operationservice.impl.operations.Backup;
 
 public class PutBackupPayloadOperation
         extends Operation
@@ -36,6 +37,12 @@ public class PutBackupPayloadOperation
 
     @Override
     public void run() throws Exception {
+        InternalPartitionServiceImpl partitionService = (InternalPartitionServiceImpl) getNodeEngine().getPartitionService();
+        DelayedBackupContainer delayedBackupContainer = partitionService.getDelayedBackupContainer(getPartitionId());
 
+        for (Backup backup : delayedBackupContainer.handlePayload(payloadId, payload)) {
+            backup.doRunBackup();
+            backup.afterRun();
+        }
     }
 }
