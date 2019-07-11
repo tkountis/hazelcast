@@ -68,6 +68,11 @@ public class PutBackupOperation extends KeyBasedMapOperation implements BackupOp
     }
 
     @Override
+    public void injectPayload(Data payload) {
+        dataValue = payload;
+    }
+
+    @Override
     public long getPayloadId() {
         return payloadId;
     }

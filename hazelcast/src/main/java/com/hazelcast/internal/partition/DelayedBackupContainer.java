@@ -32,6 +32,7 @@ public class DelayedBackupContainer {
             return true;
         }
 
+        operation.injectPayload(payload);
         return false;
     }
 
