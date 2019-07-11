@@ -126,6 +126,9 @@ public abstract class Operation implements DataSerializable {
     public void run() throws Exception {
     }
 
+    public void injectValue(Object value) {
+    }
+
     /**
      * Call the operation and returns the CallStatus.
      *

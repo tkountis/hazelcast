@@ -16,11 +16,12 @@
 
 package com.hazelcast.spi.impl.operationservice.impl.operations;
 
+import com.hazelcast.internal.partition.DelayedBackupContainer;
 import com.hazelcast.internal.partition.InternalPartition;
-import com.hazelcast.internal.partition.InternalPartitionService;
 import com.hazelcast.internal.partition.PartitionReplica;
 import com.hazelcast.internal.partition.PartitionReplicaVersionManager;
 import com.hazelcast.internal.partition.ReplicaErrorLogger;
+import com.hazelcast.internal.partition.impl.InternalPartitionServiceImpl;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.Address;
 import com.hazelcast.nio.ObjectDataInput;
@@ -58,6 +59,7 @@ public final class Backup extends Operation implements BackupOperation, AllowedD
 
     private transient Throwable validationFailure;
     private transient boolean backupOperationInitialized;
+    private transient InternalPartitionServiceImpl partitionService;
 
     public Backup() {
     }
@@ -94,7 +96,7 @@ public final class Backup extends Operation implements BackupOperation, AllowedD
     public void beforeRun() {
         NodeEngineImpl nodeEngine = (NodeEngineImpl) getNodeEngine();
         int partitionId = getPartitionId();
-        InternalPartitionService partitionService = nodeEngine.getPartitionService();
+        partitionService = (InternalPartitionServiceImpl) nodeEngine.getPartitionService();
         ILogger logger = getLogger();
 
         ensureBackupOperationInitialized();
@@ -155,6 +157,12 @@ public final class Backup extends Operation implements BackupOperation, AllowedD
         }
 
         ensureBackupOperationInitialized();
+
+        DelayedBackupContainer delayedBackupContainer = partitionService.getDelayedBackupContainer(getPartitionId());
+        if (delayedBackupContainer.delayIfMissingPayloads(this)) {
+            return;
+        }
+
         runDirect(backupOp);
 
         NodeEngineImpl nodeEngine = (NodeEngineImpl) getNodeEngine();

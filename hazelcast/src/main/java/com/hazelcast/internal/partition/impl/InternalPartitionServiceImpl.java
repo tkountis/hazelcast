@@ -22,6 +22,7 @@ import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.core.ICompletableFuture;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.core.MemberLeftException;
+import com.hazelcast.internal.partition.DelayedBackupContainer;
 import com.hazelcast.partition.MigrationListener;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.cluster.ClusterStateListener;
@@ -140,6 +141,8 @@ public class InternalPartitionServiceImpl implements InternalPartitionService,
     /** Whether the master should fetch the partition tables from other nodes, can happen when node becomes new master. */
     private volatile boolean shouldFetchPartitionTables;
 
+    private final DelayedBackupContainer[] delayedBackupContainers;
+
     public InternalPartitionServiceImpl(Node node) {
         HazelcastProperties properties = node.getProperties();
         this.partitionCount = properties.getInteger(GroupProperty.PARTITION_COUNT);
@@ -166,6 +169,11 @@ public class InternalPartitionServiceImpl implements InternalPartitionService,
         metricsRegistry.scanAndRegister(partitionStateManager, "partitions");
         metricsRegistry.scanAndRegister(migrationManager, "partitions");
         metricsRegistry.scanAndRegister(replicaManager, "partitions");
+
+        this.delayedBackupContainers = new DelayedBackupContainer[partitionCount];
+        for (int i = 0; i < partitionCount; i++) {
+            delayedBackupContainers[i] = new DelayedBackupContainer();
+        }
     }
 
     @Override
@@ -1172,6 +1180,10 @@ public class InternalPartitionServiceImpl implements InternalPartitionService,
         } finally {
             lock.unlock();
         }
+    }
+
+    public DelayedBackupContainer getDelayedBackupContainer(int partitionId) {
+        return delayedBackupContainers[partitionId];
     }
 
     @SuppressWarnings("checkstyle:npathcomplexity")

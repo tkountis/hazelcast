@@ -16,6 +16,8 @@
 
 package com.hazelcast.spi.impl.operationservice;
 
+import com.hazelcast.nio.serialization.Data;
+
 /**
  * When an {@link BackupAwareOperation} makes a change, the backups need to be replicated to other
  * members (depending on the configuration and if change really happened). The BackupOperation is created by such a
@@ -24,5 +26,12 @@ package com.hazelcast.spi.impl.operationservice;
  * @author mdogan 12/3/12
  */
 public interface BackupOperation extends PartitionAwareOperation {
+
+    default long getPayloadId() {
+        return 0;
+    }
+
+    default void injectPayload(Data payload) {
+    }
 
 }

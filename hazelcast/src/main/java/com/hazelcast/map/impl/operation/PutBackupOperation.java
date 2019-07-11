@@ -68,6 +68,11 @@ public class PutBackupOperation extends KeyBasedMapOperation implements BackupOp
     }
 
     @Override
+    public long getPayloadId() {
+        return payloadId;
+    }
+
+    @Override
     public Object getResponse() {
         return Boolean.TRUE;
     }
