@@ -31,7 +31,7 @@ public class SetOperation extends BasePutOperation implements MutatingOperation 
     }
 
     public SetOperation(String name, Data dataKey, Data value, long ttl, long maxIdle) {
-        super(name, dataKey, value, ttl, maxIdle);
+        super(name, dataKey, value, ttl, maxIdle, 0);
     }
 
     @Override

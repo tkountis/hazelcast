@@ -19,73 +19,8 @@ package com.hazelcast.client.proxy;
 import com.hazelcast.aggregation.Aggregator;
 import com.hazelcast.client.impl.clientside.ClientLockReferenceIdGenerator;
 import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.codec.MapAddEntryListenerCodec;
-import com.hazelcast.client.impl.protocol.codec.MapAddEntryListenerToKeyCodec;
-import com.hazelcast.client.impl.protocol.codec.MapAddEntryListenerToKeyWithPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapAddEntryListenerWithPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapAddIndexCodec;
-import com.hazelcast.client.impl.protocol.codec.MapAddInterceptorCodec;
-import com.hazelcast.client.impl.protocol.codec.MapAddPartitionLostListenerCodec;
-import com.hazelcast.client.impl.protocol.codec.MapAggregateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapAggregateWithPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapClearCodec;
-import com.hazelcast.client.impl.protocol.codec.MapContainsKeyCodec;
-import com.hazelcast.client.impl.protocol.codec.MapContainsValueCodec;
-import com.hazelcast.client.impl.protocol.codec.MapDeleteCodec;
-import com.hazelcast.client.impl.protocol.codec.MapEntriesWithPagingPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapEntriesWithPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapEntrySetCodec;
-import com.hazelcast.client.impl.protocol.codec.MapEventJournalReadCodec;
-import com.hazelcast.client.impl.protocol.codec.MapEventJournalSubscribeCodec;
+import com.hazelcast.client.impl.protocol.codec.*;
 import com.hazelcast.client.impl.protocol.codec.MapEventJournalSubscribeCodec.ResponseParameters;
-import com.hazelcast.client.impl.protocol.codec.MapEvictAllCodec;
-import com.hazelcast.client.impl.protocol.codec.MapEvictCodec;
-import com.hazelcast.client.impl.protocol.codec.MapExecuteOnAllKeysCodec;
-import com.hazelcast.client.impl.protocol.codec.MapExecuteOnKeyCodec;
-import com.hazelcast.client.impl.protocol.codec.MapExecuteOnKeysCodec;
-import com.hazelcast.client.impl.protocol.codec.MapExecuteWithPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapFlushCodec;
-import com.hazelcast.client.impl.protocol.codec.MapForceUnlockCodec;
-import com.hazelcast.client.impl.protocol.codec.MapGetAllCodec;
-import com.hazelcast.client.impl.protocol.codec.MapGetCodec;
-import com.hazelcast.client.impl.protocol.codec.MapGetEntryViewCodec;
-import com.hazelcast.client.impl.protocol.codec.MapIsEmptyCodec;
-import com.hazelcast.client.impl.protocol.codec.MapIsLockedCodec;
-import com.hazelcast.client.impl.protocol.codec.MapKeySetCodec;
-import com.hazelcast.client.impl.protocol.codec.MapKeySetWithPagingPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapKeySetWithPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapLoadAllCodec;
-import com.hazelcast.client.impl.protocol.codec.MapLoadGivenKeysCodec;
-import com.hazelcast.client.impl.protocol.codec.MapLockCodec;
-import com.hazelcast.client.impl.protocol.codec.MapProjectCodec;
-import com.hazelcast.client.impl.protocol.codec.MapProjectWithPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapPutAllCodec;
-import com.hazelcast.client.impl.protocol.codec.MapPutCodec;
-import com.hazelcast.client.impl.protocol.codec.MapPutIfAbsentCodec;
-import com.hazelcast.client.impl.protocol.codec.MapPutIfAbsentWithMaxIdleCodec;
-import com.hazelcast.client.impl.protocol.codec.MapPutTransientCodec;
-import com.hazelcast.client.impl.protocol.codec.MapPutTransientWithMaxIdleCodec;
-import com.hazelcast.client.impl.protocol.codec.MapPutWithMaxIdleCodec;
-import com.hazelcast.client.impl.protocol.codec.MapRemoveAllCodec;
-import com.hazelcast.client.impl.protocol.codec.MapRemoveCodec;
-import com.hazelcast.client.impl.protocol.codec.MapRemoveEntryListenerCodec;
-import com.hazelcast.client.impl.protocol.codec.MapRemoveIfSameCodec;
-import com.hazelcast.client.impl.protocol.codec.MapRemoveInterceptorCodec;
-import com.hazelcast.client.impl.protocol.codec.MapRemovePartitionLostListenerCodec;
-import com.hazelcast.client.impl.protocol.codec.MapReplaceCodec;
-import com.hazelcast.client.impl.protocol.codec.MapReplaceIfSameCodec;
-import com.hazelcast.client.impl.protocol.codec.MapSetCodec;
-import com.hazelcast.client.impl.protocol.codec.MapSetTtlCodec;
-import com.hazelcast.client.impl.protocol.codec.MapSetWithMaxIdleCodec;
-import com.hazelcast.client.impl.protocol.codec.MapSizeCodec;
-import com.hazelcast.client.impl.protocol.codec.MapSubmitToKeyCodec;
-import com.hazelcast.client.impl.protocol.codec.MapTryLockCodec;
-import com.hazelcast.client.impl.protocol.codec.MapTryPutCodec;
-import com.hazelcast.client.impl.protocol.codec.MapTryRemoveCodec;
-import com.hazelcast.client.impl.protocol.codec.MapUnlockCodec;
-import com.hazelcast.client.impl.protocol.codec.MapValuesCodec;
-import com.hazelcast.client.impl.protocol.codec.MapValuesWithPagingPredicateCodec;
-import com.hazelcast.client.impl.protocol.codec.MapValuesWithPredicateCodec;
 import com.hazelcast.client.impl.querycache.ClientQueryCacheContext;
 import com.hazelcast.client.map.impl.ClientMapPartitionIterator;
 import com.hazelcast.client.map.impl.ClientMapQueryPartitionIterator;
@@ -140,6 +75,7 @@ import com.hazelcast.ringbuffer.impl.client.PortableReadResultSet;
 import com.hazelcast.spi.impl.UnmodifiableLazyList;
 import com.hazelcast.spi.serialization.SerializationService;
 import com.hazelcast.util.CollectionUtil;
+import com.hazelcast.util.HashUtil;
 import com.hazelcast.util.IterationType;
 
 import javax.annotation.Nonnull;
@@ -523,13 +459,19 @@ public class ClientMapProxy<K, V> extends ClientProxy
         Data keyData = toData(key);
         Data valueData = toData(value);
         long ttlMillis = timeInMsOrOneIfResultIsZero(ttl, ttlUnit);
+
+        long backupPayloadId = HashUtil.hashCode(key);
+        ClientMessage backupPayloadRequest = MapPutBackupPayloadCodec.encodeRequest(backupPayloadId, valueData);
+        invokeOnAddress(backupPayloadRequest, null); //todo waiting Mehmet
+
         ClientMessage request;
         if (maxIdle != null) {
             request = MapPutWithMaxIdleCodec.encodeRequest(name, keyData, valueData,
                     getThreadId(), ttlMillis, timeInMsOrOneIfResultIsZero(maxIdle, maxIdleUnit));
         } else {
-            request = MapPutCodec.encodeRequest(name, keyData, valueData, getThreadId(), ttlMillis);
+            request = MapPutCodec.encodeRequest(name, keyData, valueData, getThreadId(), ttlMillis, backupPayloadId);
         }
+
         ClientMessage response = invoke(request, keyData);
         MapPutCodec.ResponseParameters resultParameters = MapPutCodec.decodeResponse(response);
         return toObject(resultParameters.response);

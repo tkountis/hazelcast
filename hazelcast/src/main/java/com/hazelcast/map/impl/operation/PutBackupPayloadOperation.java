@@ -19,29 +19,23 @@ package com.hazelcast.map.impl.operation;
 import com.hazelcast.map.impl.MapDataSerializerHook;
 import com.hazelcast.nio.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.MutatingOperation;
+import com.hazelcast.spi.impl.operationservice.Operation;
+import com.hazelcast.spi.impl.operationservice.PartitionAwareOperation;
 
-public class PutTransientOperation extends BasePutOperation implements MutatingOperation {
+public class PutBackupPayloadOperation
+        extends Operation
+        implements PartitionAwareOperation {
 
-    public PutTransientOperation() {
-    }
+    private long payloadId;
+    private Data payload;
 
-    public PutTransientOperation(String name, Data dataKey, Data value, long ttl, long maxIdle) {
-        super(name, dataKey, value, ttl, maxIdle, 0);
-    }
-
-    @Override
-    protected void runInternal() {
-        oldValue = mapServiceContext.toData(recordStore.putTransient(dataKey, dataValue, ttl, maxIdle));
-        putTransient = true;
-    }
-
-    @Override
-    public void onWaitExpire() {
-        sendResponse(null);
+    public PutBackupPayloadOperation(long payloadId, Data payload) {
+        this.payloadId = payloadId;
+        this.payload = payload;
     }
 
     @Override
-    public int getClassId() {
-        return MapDataSerializerHook.PUT_TRANSIENT;
+    public void run() throws Exception {
+
     }
 }

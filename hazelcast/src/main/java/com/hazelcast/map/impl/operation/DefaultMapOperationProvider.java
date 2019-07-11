@@ -52,8 +52,8 @@ public class DefaultMapOperationProvider implements MapOperationProvider {
     }
 
     @Override
-    public MapOperation createPutOperation(String name, Data key, Data value, long ttl, long maxIdle) {
-        return new PutOperation(name, key, value, ttl, maxIdle);
+    public MapOperation createPutOperation(String name, Data key, Data value, long ttl, long maxIdle, long payloadId) {
+        return new PutOperation(name, key, value, ttl, maxIdle, payloadId);
     }
 
     @Override

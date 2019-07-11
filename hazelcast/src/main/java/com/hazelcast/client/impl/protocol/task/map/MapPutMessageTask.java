@@ -37,9 +37,14 @@ public class MapPutMessageTask
 
     @Override
     protected Operation prepareOperation() {
+        Long payloadId = null;
+        if (parameters.payloadIdExist) {
+            payloadId = parameters.payloadId;
+        }
+
         MapOperationProvider operationProvider = getMapOperationProvider(parameters.name);
         MapOperation op = operationProvider.createPutOperation(parameters.name, parameters.key,
-                parameters.value, parameters.ttl, DEFAULT_MAX_IDLE);
+                parameters.value, parameters.ttl, DEFAULT_MAX_IDLE, payloadId);
         op.setThreadId(parameters.threadId);
         return op;
     }

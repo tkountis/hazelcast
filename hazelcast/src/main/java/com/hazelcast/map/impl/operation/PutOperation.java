@@ -25,8 +25,8 @@ public class PutOperation extends BasePutOperation implements MutatingOperation 
     public PutOperation() {
     }
 
-    public PutOperation(String name, Data dataKey, Data value, long ttl, long maxIdle) {
-        super(name, dataKey, value, ttl, maxIdle);
+    public PutOperation(String name, Data dataKey, Data value, long ttl, long maxIdle, long payloadId) {
+        super(name, dataKey, value, ttl, maxIdle, payloadId);
     }
 
     @Override

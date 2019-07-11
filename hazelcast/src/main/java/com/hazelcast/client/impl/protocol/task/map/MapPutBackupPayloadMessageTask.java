@@ -17,53 +17,64 @@
 package com.hazelcast.client.impl.protocol.task.map;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
-import com.hazelcast.client.impl.protocol.codec.MapPutWithMaxIdleCodec;
+import com.hazelcast.client.impl.protocol.codec.MapPutBackupPayloadCodec;
+import com.hazelcast.client.impl.protocol.codec.MapPutCodec;
 import com.hazelcast.instance.impl.Node;
+import com.hazelcast.map.impl.MapService;
 import com.hazelcast.map.impl.operation.MapOperation;
 import com.hazelcast.map.impl.operation.MapOperationProvider;
+import com.hazelcast.map.impl.operation.PutBackupPayloadOperation;
 import com.hazelcast.nio.Connection;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
+import java.security.Permission;
 import java.util.concurrent.TimeUnit;
 
-public class MapPutWithMaxIdleMessageTask
-        extends AbstractMapPutWithMaxIdleMessageTask<MapPutWithMaxIdleCodec.RequestParameters> {
+import static com.hazelcast.map.impl.recordstore.RecordStore.DEFAULT_MAX_IDLE;
 
-    public MapPutWithMaxIdleMessageTask(ClientMessage clientMessage, Node node, Connection connection) {
+public class MapPutBackupPayloadMessageTask
+        extends AbstractMapPartitionMessageTask<MapPutBackupPayloadCodec.RequestParameters> {
+
+    public MapPutBackupPayloadMessageTask(ClientMessage clientMessage, Node node, Connection connection) {
         super(clientMessage, node, connection);
     }
 
     @Override
-    protected MapPutWithMaxIdleCodec.RequestParameters decodeClientMessage(ClientMessage clientMessage) {
-        return MapPutWithMaxIdleCodec.decodeRequest(clientMessage);
+    protected Operation prepareOperation() {
+        return new PutBackupPayloadOperation(parameters.id, parameters.value);
+    }
+
+    @Override
+    protected MapPutBackupPayloadCodec.RequestParameters decodeClientMessage(ClientMessage clientMessage) {
+        return MapPutBackupPayloadCodec.decodeRequest(clientMessage);
     }
 
     @Override
     protected ClientMessage encodeResponse(Object response) {
-        return MapPutWithMaxIdleCodec.encodeResponse(serializationService.toData(response));
+        return MapPutCodec.encodeResponse(serializationService.toData(response));
     }
 
-    protected Operation prepareOperation() {
-        MapOperationProvider operationProvider = getMapOperationProvider(parameters.name);
-        MapOperation op = operationProvider.createPutOperation(parameters.name, parameters.key,
-                parameters.value, parameters.ttl, parameters.maxIdle, 0);
-        op.setThreadId(parameters.threadId);
-        return op;
+    public String getServiceName() {
+        return MapService.SERVICE_NAME;
+    }
+
+    @Override
+    public Permission getRequiredPermission() {
+        return null;
     }
 
     @Override
     public String getDistributedObjectName() {
-        return parameters.name;
+        return null;
     }
 
     @Override
     public String getMethodName() {
-        return "put";
+        return "putBackupPayload";
     }
 
     @Override
     public Object[] getParameters() {
-        return new Object[]{parameters.key, parameters.value, parameters.ttl, TimeUnit.MILLISECONDS,
-                parameters.maxIdle, TimeUnit.MILLISECONDS};
+        return new Object[]{};
     }
 }

@@ -399,7 +399,7 @@ abstract class MapProxySupport<K, V>
         Data keyData = toDataWithStrategy(key);
         long timeInMillis = timeInMsOrOneIfResultIsZero(ttl, ttlUnit);
         long maxIdleInMillis = timeInMsOrOneIfResultIsZero(maxIdle, maxIdleUnit);
-        MapOperation operation = operationProvider.createPutOperation(name, keyData, value, timeInMillis, maxIdleInMillis);
+        MapOperation operation = operationProvider.createPutOperation(name, keyData, value, timeInMillis, maxIdleInMillis, 0);
         return (Data) invokeOperation(keyData, operation);
     }
 
@@ -459,7 +459,7 @@ abstract class MapProxySupport<K, V>
         Data keyData = toDataWithStrategy(key);
         int partitionId = partitionService.getPartitionId(keyData);
         MapOperation operation = operationProvider.createPutOperation(name, keyData, value,
-                timeInMsOrOneIfResultIsZero(ttl, ttlUnit), timeInMsOrOneIfResultIsZero(maxIdle, maxIdleUnit));
+                timeInMsOrOneIfResultIsZero(ttl, ttlUnit), timeInMsOrOneIfResultIsZero(maxIdle, maxIdleUnit), 0);
         operation.setThreadId(getThreadId());
         try {
             long startTimeNanos = System.nanoTime();

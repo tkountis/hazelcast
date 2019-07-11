@@ -33,13 +33,15 @@ public abstract class BasePutOperation extends LockAwareOperation implements Bac
     protected transient Data dataMergingValue;
     protected transient EntryEventType eventType;
     protected transient boolean putTransient;
+    protected transient long payloadId;
 
     public BasePutOperation(String name, Data dataKey, Data value) {
         super(name, dataKey, value, DEFAULT_TTL, DEFAULT_MAX_IDLE);
     }
 
-    public BasePutOperation(String name, Data dataKey, Data value, long ttl, long maxIdle) {
+    public BasePutOperation(String name, Data dataKey, Data value, long ttl, long maxIdle, long payloadId) {
         super(name, dataKey, value, ttl, maxIdle);
+        this.payloadId = payloadId;
     }
 
     public BasePutOperation() {
@@ -76,8 +78,9 @@ public abstract class BasePutOperation extends LockAwareOperation implements Bac
         if (isPostProcessing(recordStore)) {
             dataValue = mapServiceContext.toData(record.getValue());
         }
-        return new PutBackupOperation(name, dataKey, dataValue, replicationInfo,
-                putTransient, disableWanReplicationEvent);
+
+        return new PutBackupOperation(name, dataKey, payloadId == 0 ? dataValue : null, replicationInfo,
+                putTransient, disableWanReplicationEvent, payloadId);
     }
 
     @Override

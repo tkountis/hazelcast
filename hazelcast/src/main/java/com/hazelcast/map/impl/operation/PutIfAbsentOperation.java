@@ -25,7 +25,7 @@ public class PutIfAbsentOperation extends BasePutOperation implements MutatingOp
     private boolean successful;
 
     public PutIfAbsentOperation(String name, Data dataKey, Data value, long ttl, long maxIdle) {
-        super(name, dataKey, value, ttl, maxIdle);
+        super(name, dataKey, value, ttl, maxIdle, 0);
     }
 
     public PutIfAbsentOperation() {

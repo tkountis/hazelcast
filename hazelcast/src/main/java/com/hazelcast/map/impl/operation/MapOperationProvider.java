@@ -38,7 +38,7 @@ import java.util.Set;
  */
 public interface MapOperationProvider {
 
-    MapOperation createPutOperation(String name, Data key, Data value, long ttl, long maxIdle);
+    MapOperation createPutOperation(String name, Data key, Data value, long ttl, long maxIdle, long payloadId);
 
     MapOperation createTryPutOperation(String name, Data dataKey, Data value, long timeout);
 

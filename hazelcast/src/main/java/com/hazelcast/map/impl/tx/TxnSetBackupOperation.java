@@ -29,7 +29,7 @@ public class TxnSetBackupOperation extends PutBackupOperation {
     public TxnSetBackupOperation(String name, Data dataKey, Data dataValue,
                                  RecordInfo recordInfo, boolean putTransient,
                                  boolean disableWanReplicationEvent) {
-        super(name, dataKey, dataValue, recordInfo, putTransient, disableWanReplicationEvent);
+        super(name, dataKey, dataValue, recordInfo, putTransient, disableWanReplicationEvent, 0);
     }
 
     @Override

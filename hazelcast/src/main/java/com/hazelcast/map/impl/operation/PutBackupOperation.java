@@ -29,15 +29,17 @@ import java.io.IOException;
 
 public class PutBackupOperation extends KeyBasedMapOperation implements BackupOperation {
     protected boolean putTransient;
+    protected long payloadId;
     protected RecordInfo recordInfo;
 
     public PutBackupOperation(String name, Data dataKey, Data dataValue,
                               RecordInfo recordInfo, boolean putTransient,
-                              boolean disableWanReplicationEvent) {
+                              boolean disableWanReplicationEvent, long payloadId) {
         super(name, dataKey, dataValue);
         this.recordInfo = recordInfo;
         this.putTransient = putTransient;
         this.disableWanReplicationEvent = disableWanReplicationEvent;
+        this.payloadId = payloadId;
     }
 
     public PutBackupOperation() {
@@ -86,6 +88,7 @@ public class PutBackupOperation extends KeyBasedMapOperation implements BackupOp
         }
         out.writeBoolean(putTransient);
         out.writeBoolean(disableWanReplicationEvent);
+        out.writeLong(payloadId);
     }
 
     @Override
@@ -98,5 +101,6 @@ public class PutBackupOperation extends KeyBasedMapOperation implements BackupOp
         }
         putTransient = in.readBoolean();
         disableWanReplicationEvent = in.readBoolean();
+        payloadId = in.readLong();
     }
 }
