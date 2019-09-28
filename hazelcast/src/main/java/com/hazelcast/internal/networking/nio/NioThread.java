@@ -24,6 +24,9 @@ import com.hazelcast.internal.util.concurrent.IdleStrategy;
 import com.hazelcast.internal.util.counters.SwCounter;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.operationexecutor.OperationHostileThread;
+import net.openhft.affinity.Affinity;
+import net.openhft.affinity.AffinityLock;
+import net.openhft.affinity.AffinitySupport;
 
 import java.io.IOException;
 import java.nio.channels.CancelledKeyException;
@@ -34,6 +37,7 @@ import java.util.Iterator;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.hazelcast.internal.metrics.MetricTarget.MANAGEMENT_CENTER;
 import static com.hazelcast.internal.metrics.ProbeLevel.INFO;
@@ -214,8 +218,29 @@ public class NioThread extends Thread implements OperationHostileThread {
         }
     }
 
+
+    public final static AtomicInteger CPU_ID = new AtomicInteger(Integer.getInteger("ioThreadCpuId",0));
+    public final static boolean THREAD_AFFINITY = Boolean.parseBoolean(System.getProperty("thread.affinity","true"));
+
     @Override
     public void run() {
+        System.out.println("ThreadAffinity enabled:"+THREAD_AFFINITY);
+        System.out.println("Is JNA available:"+ Affinity.isJNAAvailable());
+
+        if(THREAD_AFFINITY) {
+            AffinityLock lock = AffinityLock.acquireLock(CPU_ID.getAndIncrement());
+            try {
+                System.out.println(getName() + " ThreadId:" + AffinitySupport.getThreadId());
+                doRun();
+            } finally {
+                lock.release();
+            }
+        }else{
+            doRun();
+        }
+    }
+
+    private void doRun() {
         // This outer loop is a bit complex but it takes care of a lot of stuff:
         // * it calls runSelectNowLoop or runSelectLoop based on selectNow enabled or not.
         // * handles backoff and retrying in case if io exception is thrown
