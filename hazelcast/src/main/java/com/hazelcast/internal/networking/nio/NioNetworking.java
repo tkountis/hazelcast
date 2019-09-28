@@ -34,6 +34,7 @@ import com.hazelcast.internal.networking.OutboundHandler;
 import com.hazelcast.internal.networking.nio.iobalancer.IOBalancer;
 import com.hazelcast.internal.util.ConcurrencyDetection;
 import com.hazelcast.internal.util.concurrent.BackoffIdleStrategy;
+import com.hazelcast.internal.util.CpuPool;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.LoggingService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -124,6 +125,8 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
     @Probe
     private volatile long packetsReceived;
 
+    private final CpuPool cpuPool = new CpuPool(System.getProperty("ioCpus"));
+
     public NioNetworking(Context ctx) {
         this.threadNamePrefix = ctx.threadNamePrefix;
         this.metricsRegistry = ctx.metricsRegistry;
@@ -205,6 +208,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
                     idleStrategy);
             thread.id = i;
             thread.setSelectorWorkaroundTest(selectorWorkaroundTest);
+            thread.setCpuPool(cpuPool);
             inThreads[i] = thread;
             thread.start();
         }
@@ -220,6 +224,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
                     idleStrategy);
             thread.id = i;
             thread.setSelectorWorkaroundTest(selectorWorkaroundTest);
+            thread.setCpuPool(cpuPool);
             outThreads[i] = thread;
             thread.start();
         }
