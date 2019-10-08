@@ -35,6 +35,7 @@ import com.hazelcast.internal.networking.nio.iobalancer.IOBalancer;
 import com.hazelcast.internal.util.ConcurrencyDetection;
 import com.hazelcast.internal.util.concurrent.BackoffIdleStrategy;
 import com.hazelcast.internal.util.CpuPool;
+import com.hazelcast.internal.util.ThreadAffinity;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.LoggingService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -198,7 +199,6 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
             return t;
         });
 
-
         NioThread[] outThreads = new NioThread[outputThreadCount];
         for (int i = 0; i < outThreads.length; i++) {
             NioThread thread = new NioThread(
@@ -212,6 +212,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
             thread.setCpuPool(cpuPool);
             outThreads[i] = thread;
             thread.start();
+            ThreadAffinity.setThreadAffinity(thread, cpuPool.take());
         }
         this.outputThreads = outThreads;
 
@@ -234,6 +235,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
             thread.setSelectorWorkaroundTest(selectorWorkaroundTest);
             thread.setCpuPool(cpuPool);
             inThreads[i] = thread;
+            ThreadAffinity.setThreadAffinity(thread, cpuPool.take());
             thread.start();
         }
         this.inputThreads = inThreads;
@@ -291,6 +293,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
         for (NioThread thread : threads) {
             thread.shutdown();
         }
+        cpuPool.reset();
     }
 
     @Override
