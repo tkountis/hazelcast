@@ -25,6 +25,7 @@ import com.hazelcast.internal.networking.OutboundHandler;
 import com.hazelcast.internal.networking.OutboundPipeline;
 import com.hazelcast.internal.networking.nio.iobalancer.IOBalancer;
 import com.hazelcast.internal.util.ConcurrencyDetection;
+import com.hazelcast.internal.util.counters.SwCounter;
 import com.hazelcast.logging.ILogger;
 
 import java.io.IOException;
@@ -32,7 +33,6 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -42,159 +42,83 @@ import static com.hazelcast.internal.networking.HandlerStatus.DIRTY;
 import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 import static com.hazelcast.internal.util.collection.ArrayUtils.append;
 import static com.hazelcast.internal.util.collection.ArrayUtils.replaceFirst;
-import static java.lang.Long.max;
+import static com.hazelcast.internal.util.counters.SwCounter.newSwCounter;
+import static java.lang.Math.max;
 import static java.lang.System.currentTimeMillis;
 import static java.lang.Thread.currentThread;
 import static java.nio.channels.SelectionKey.OP_WRITE;
 
+public final class NioOutboundPipeline
+        extends NioPipeline
+        implements Supplier<OutboundFrame>, OutboundPipeline {
 
-enum State {
-    /*
-     * The pipeline isn't scheduled (nothing to do).
-     * Only possible next state is scheduled.
-     */
-    UNSCHEDULED,
-    /*
-     * The pipeline is scheduled, meaning it is owned by some thread.
-     *
-     * the next possible states are:
-     * - unscheduled (everything got written; we are done)
-     * - scheduled: new writes got detected
-     * - reschedule: needed if one of the handlers wants to reschedule the pipeline
-     */
-    SCHEDULED,
-    /*
-     * One of the handler wants to stop with the pipeline; one of the usages is TLS handshake.
-     * Additional writes of frames will not lead to a scheduling of the pipeline. Only a
-     * wakeup will schedule the pipeline.
-     *
-     * Next possible states are:
-     * - unscheduled: everything got written
-     * - scheduled: new writes got detected
-     * - reschedule: pipeline needs to be reprocessed
-     * - blocked (one of the handler wants to stop with the pipeline; one of the usages is TLS handshake
-     */
-    BLOCKED,
-    /*
-     * state needed for pipeline that was scheduled, but needs to be reprocessed
-     * this is needed for wakeup during processing (TLS).
-     *
-     * Next possible states are:
-     * - unscheduled: everything got written
-     * - scheduled: new writes got detected
-     * - reschedule: pipeline needs to be reprocessed
-     * - blocked (one of the handler wants to stop with the pipeline; one of the usages is TLS handshake
-     */
-    RESCHEDULE
-}
-
-abstract class NioOutboundPipelineL1Pad extends NioPipeline {
-    long p01, p02, p03, p04, p05, p06, p07;
-    long p10, p11, p12, p13, p14, p15, p16, p17;
-
-    NioOutboundPipelineL1Pad(NioChannel channel,
-                             NioThread owner,
-                             ChannelErrorHandler errorHandler,
-                             int initialOps,
-                             ILogger logger,
-                             IOBalancer ioBalancer) {
-        super(channel, owner, errorHandler, initialOps, logger, ioBalancer);
+    public enum State {
+        /*
+         * The pipeline isn't scheduled (nothing to do).
+         * Only possible next state is scheduled.
+         */
+        UNSCHEDULED,
+        /*
+         * The pipeline is scheduled, meaning it is owned by some thread.
+         *
+         * the next possible states are:
+         * - unscheduled (everything got written; we are done)
+         * - scheduled: new writes got detected
+         * - reschedule: needed if one of the handlers wants to reschedule the pipeline
+         */
+        SCHEDULED,
+        /*
+         * One of the handler wants to stop with the pipeline; one of the usages is TLS handshake.
+         * Additional writes of frames will not lead to a scheduling of the pipeline. Only a
+         * wakeup will schedule the pipeline.
+         *
+         * Next possible states are:
+         * - unscheduled: everything got written
+         * - scheduled: new writes got detected
+         * - reschedule: pipeline needs to be reprocessed
+         * - blocked (one of the handler wants to stop with the pipeline; one of the usages is TLS handshake
+         */
+        BLOCKED,
+        /*
+         * state needed for pipeline that was scheduled, but needs to be reprocessed
+         * this is needed for wakeup during processing (TLS).
+         *
+         * Next possible states are:
+         * - unscheduled: everything got written
+         * - scheduled: new writes got detected
+         * - reschedule: pipeline needs to be reprocessed
+         * - blocked (one of the handler wants to stop with the pipeline; one of the usages is TLS handshake
+         */
+        RESCHEDULE
     }
-}
-
-abstract class NioOutboundPipelineL1Fields extends NioOutboundPipelineL1Pad {
-    final static AtomicLongFieldUpdater<NioOutboundPipelineL1Fields> NORMAL_FRAMES_WRITTEN
-            = AtomicLongFieldUpdater.newUpdater(NioOutboundPipelineL1Fields.class, "normalFramesWritten");
-    final static AtomicLongFieldUpdater<NioOutboundPipelineL1Fields> PRIORITY_FRAMES_WRITTEN
-            = AtomicLongFieldUpdater.newUpdater(NioOutboundPipelineL1Fields.class, "priorityFramesWritten");
-    final static AtomicLongFieldUpdater<NioOutboundPipelineL1Fields> PROCESS_COUNT
-            = AtomicLongFieldUpdater.newUpdater(NioOutboundPipelineL1Fields.class, "processCount");
-    final static AtomicLongFieldUpdater<NioOutboundPipelineL1Fields> LAST_WRITE_TIME
-            = AtomicLongFieldUpdater.newUpdater(NioOutboundPipelineL1Fields.class, "lastWriteTime");
-    final static AtomicLongFieldUpdater<NioOutboundPipelineL1Fields> BYTES_WRITTEN
-            = AtomicLongFieldUpdater.newUpdater(NioOutboundPipelineL1Fields.class, "bytesWritten");
-
-    OutboundHandler[] handlers = new OutboundHandler[0];
-    ByteBuffer sendBuffer;
-    @Probe(name = "bytesWritten")
-    public volatile long bytesWritten;
-    @Probe(name = "normalFramesWritten")
-    public volatile long normalFramesWritten;
-    @Probe(name = "priorityFramesWritten")
-    public volatile long priorityFramesWritten;
-    @Probe
-    public volatile long processCount;
-    long bytesWrittenLastPublish;
-    long normalFramesWrittenLastPublish;
-    long priorityFramesWrittenLastPublish;
-    long processCountLastPublish;
-    public volatile long lastWriteTime;
-
-    NioOutboundPipelineL1Fields(NioChannel channel,
-                                NioThread owner,
-                                ChannelErrorHandler errorHandler,
-                                int initialOps,
-                                ILogger logger,
-                                IOBalancer ioBalancer) {
-        super(channel, owner, errorHandler, initialOps, logger, ioBalancer);
-    }
-}
-
-abstract class NioOutboundPipelineL2Pad extends NioOutboundPipelineL1Fields {
-    long p01, p02, p03, p04, p05, p06, p07;
-    long p10, p11, p12, p13, p14, p15, p16, p17;
-
-    NioOutboundPipelineL2Pad(NioChannel channel,
-                             NioThread owner,
-                             ChannelErrorHandler errorHandler,
-                             int initialOps,
-                             ILogger logger,
-                             IOBalancer ioBalancer) {
-        super(channel, owner, errorHandler, initialOps, logger, ioBalancer);
-    }
-}
-
-abstract class NioOutboundPipelineL2Fields extends NioOutboundPipelineL2Pad {
 
     @SuppressWarnings("checkstyle:visibilitymodifier")
-    //@Probe(name = "writeQueueSize")
-    public final ConcurrentLinkedQueue<OutboundFrame> writeQueue = new ConcurrentLinkedQueue<OutboundFrame>();
+    @Probe(name = "writeQueueSize")
+    public final Queue<OutboundFrame> writeQueue = new ConcurrentLinkedQueue<>();
     @SuppressWarnings("checkstyle:visibilitymodifier")
     @Probe(name = "priorityWriteQueueSize")
     public final Queue<OutboundFrame> priorityWriteQueue = new ConcurrentLinkedQueue<>();
-    final AtomicReference<State> scheduled = new AtomicReference<>(State.SCHEDULED);
 
-    ConcurrencyDetection concurrencyDetection;
-    boolean writeThroughEnabled;
-    boolean selectionKeyWakeupEnabled;
+    private OutboundHandler[] handlers = new OutboundHandler[0];
+    private ByteBuffer sendBuffer;
 
-    NioOutboundPipelineL2Fields(NioChannel channel,
-                                NioThread owner,
-                                ChannelErrorHandler errorHandler,
-                                int initialOps,
-                                ILogger logger,
-                                IOBalancer ioBalancer) {
-        super(channel, owner, errorHandler, initialOps, logger, ioBalancer);
-    }
-}
+    private final AtomicReference<State> scheduled = new AtomicReference<>(State.SCHEDULED);
+    @Probe(name = "bytesWritten")
+    private final SwCounter bytesWritten = newSwCounter();
+    @Probe(name = "normalFramesWritten")
+    private final SwCounter normalFramesWritten = newSwCounter();
+    @Probe(name = "priorityFramesWritten")
+    private final SwCounter priorityFramesWritten = newSwCounter();
 
-abstract class NioOutboundPipelineL3Pad extends NioOutboundPipelineL2Fields {
-    long p01, p02, p03, p04, p05, p06, p07;
-    long p10, p11, p12, p13, p14, p15, p16, p17;
+    private volatile long lastWriteTime;
 
-    NioOutboundPipelineL3Pad(NioChannel channel,
-                             NioThread owner,
-                             ChannelErrorHandler errorHandler,
-                             int initialOps,
-                             ILogger logger,
-                             IOBalancer ioBalancer) {
-        super(channel, owner, errorHandler, initialOps, logger, ioBalancer);
-    }
-}
-
-public final class NioOutboundPipeline
-        extends NioOutboundPipelineL3Pad
-        implements Supplier<OutboundFrame>, OutboundPipeline {
+    private long bytesWrittenLastPublish;
+    private long normalFramesWrittenLastPublish;
+    private long priorityFramesWrittenLastPublish;
+    private long processCountLastPublish;
+    private final ConcurrencyDetection concurrencyDetection;
+    private final boolean writeThroughEnabled;
+    private final boolean selectionKeyWakeupEnabled;
 
     NioOutboundPipeline(NioChannel channel,
                         NioThread owner,
@@ -214,11 +138,11 @@ public final class NioOutboundPipeline
     public long load() {
         switch (loadType) {
             case LOAD_BALANCING_HANDLE:
-                return processCount;
+                return processCount.get();
             case LOAD_BALANCING_BYTE:
-                return bytesWritten;
+                return bytesWritten.get();
             case LOAD_BALANCING_FRAME:
-                return normalFramesWritten + priorityFramesWritten;
+                return normalFramesWritten.get() + priorityFramesWritten.get();
             default:
                 throw new RuntimeException();
         }
@@ -234,7 +158,7 @@ public final class NioOutboundPipeline
 
     @Probe(name = "writeQueuePendingBytes", level = DEBUG)
     public long bytesPending() {
-        return 0;//return bytesPending(writeQueue);
+        return bytesPending(writeQueue);
     }
 
     @Probe(name = "priorityWriteQueuePendingBytes", level = DEBUG)
@@ -332,7 +256,6 @@ public final class NioOutboundPipeline
         return this;
     }
 
-
     @Override
     public OutboundFrame get() {
         OutboundFrame frame = priorityWriteQueue.poll();
@@ -342,9 +265,9 @@ public final class NioOutboundPipeline
             if (frame == null) {
                 return null;
             }
-            NORMAL_FRAMES_WRITTEN.lazySet(this, normalFramesWritten + 1);
+            normalFramesWritten.inc();
         } else {
-            PRIORITY_FRAMES_WRITTEN.lazySet(this, priorityFramesWritten + 1);
+            priorityFramesWritten.inc();
         }
 
         return frame;
@@ -354,7 +277,7 @@ public final class NioOutboundPipeline
     @Override
     @SuppressWarnings("unchecked")
     public void process() throws Exception {
-        PROCESS_COUNT.lazySet(this, processCount + 1);
+        processCount.inc();
 
         OutboundHandler[] localHandlers = handlers;
         HandlerStatus pipelineStatus = CLEAN;
@@ -487,9 +410,9 @@ public final class NioOutboundPipeline
     }
 
     private void flushToSocket() throws IOException {
-        LAST_WRITE_TIME.lazySet(this, currentTimeMillis());
+        lastWriteTime = currentTimeMillis();
         int written = socketChannel.write(sendBuffer);
-        BYTES_WRITTEN.lazySet(this, bytesWritten + written);
+        bytesWritten.inc(written);
         //System.out.println(channel + " bytes written:" + written);
     }
 
@@ -508,15 +431,15 @@ public final class NioOutboundPipeline
             return;
         }
 
-        owner.bytesTransceived += bytesWritten - bytesWrittenLastPublish;
-        owner.framesTransceived += normalFramesWritten - normalFramesWrittenLastPublish;
-        owner.priorityFramesTransceived += priorityFramesWritten - priorityFramesWrittenLastPublish;
-        owner.processCount += processCount - processCountLastPublish;
+        owner.bytesTransceived += bytesWritten.get() - bytesWrittenLastPublish;
+        owner.framesTransceived += normalFramesWritten.get() - normalFramesWrittenLastPublish;
+        owner.priorityFramesTransceived += priorityFramesWritten.get() - priorityFramesWrittenLastPublish;
+        owner.processCount += processCount.get() - processCountLastPublish;
 
-        bytesWrittenLastPublish = bytesWritten;
-        normalFramesWrittenLastPublish = normalFramesWritten;
-        priorityFramesWrittenLastPublish = priorityFramesWritten;
-        processCountLastPublish = processCount;
+        bytesWrittenLastPublish = bytesWritten.get();
+        normalFramesWrittenLastPublish = normalFramesWritten.get();
+        priorityFramesWrittenLastPublish = priorityFramesWritten.get();
+        processCountLastPublish = processCount.get();
     }
 
     @Override
