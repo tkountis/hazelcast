@@ -51,6 +51,9 @@ public final class MemoryStatsSupport {
         return readLongAttribute("FreePhysicalMemorySize", -1L);
     }
 
+    public static long committedVirtualMemorySize() {
+        return readLongAttribute("CommittedVirtualMemorySize", -1L);
+    }
     /**
      * Returns the total amount of swap space in bytes or -1 if not available.
      *

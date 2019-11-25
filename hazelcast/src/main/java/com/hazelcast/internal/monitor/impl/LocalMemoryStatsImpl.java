@@ -93,6 +93,11 @@ public class LocalMemoryStatsImpl implements LocalMemoryStats, JsonSerializable 
     }
 
     @Override
+    public long getCommittedVirtualMemory() {
+        return 0;
+    }
+
+    @Override
     public long getFreePhysical() {
         return freePhysical;
     }

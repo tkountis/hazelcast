@@ -18,6 +18,7 @@ package com.hazelcast.internal.memory;
 
 import com.hazelcast.memory.MemorySize;
 
+import static com.hazelcast.internal.memory.MemoryStatsSupport.committedVirtualMemorySize;
 import static com.hazelcast.internal.memory.MemoryStatsSupport.freePhysicalMemory;
 import static com.hazelcast.internal.memory.MemoryStatsSupport.totalPhysicalMemory;
 
@@ -37,6 +38,11 @@ public class DefaultMemoryStats implements MemoryStats {
     @Override
     public final long getFreePhysical() {
         return freePhysicalMemory();
+    }
+
+    @Override
+    public long getCommittedVirtualMemory() {
+        return committedVirtualMemorySize();
     }
 
     @Override
@@ -99,6 +105,7 @@ public class DefaultMemoryStats implements MemoryStats {
     public String toString() {
         return "MemoryStats{"
                 + "Total Physical: " + MemorySize.toPrettyString(getTotalPhysical())
+                + ", Committed Virtual: " + MemorySize.toPrettyString(getCommittedVirtualMemory())
                 + ", Free Physical: " + MemorySize.toPrettyString(getFreePhysical())
                 + ", Max Heap: " + MemorySize.toPrettyString(getMaxHeap())
                 + ", Committed Heap: " + MemorySize.toPrettyString(getCommittedHeap())

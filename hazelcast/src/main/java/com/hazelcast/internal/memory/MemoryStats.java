@@ -38,6 +38,7 @@ public interface MemoryStats {
     @Probe(level = MANDATORY)
     long getTotalPhysical();
 
+    long getCommittedVirtualMemory();
     /**
      * Returns free physical memory available in OS.
      * <p>
