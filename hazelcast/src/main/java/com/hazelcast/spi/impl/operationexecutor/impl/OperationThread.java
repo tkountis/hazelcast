@@ -34,7 +34,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.hazelcast.instance.impl.OutOfMemoryErrorDispatcher.inspectOutOfMemoryError;
 import static com.hazelcast.internal.metrics.MetricTarget.MANAGEMENT_CENTER;
-import static com.hazelcast.internal.networking.nio.NioThread.THREAD_AFFINITY;
 import static com.hazelcast.internal.util.counters.SwCounter.newSwCounter;
 
 /**
