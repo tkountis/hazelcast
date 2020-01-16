@@ -20,11 +20,13 @@ import com.hazelcast.client.impl.clientside.HazelcastClientInstanceImpl;
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.spi.impl.listener.ClientListenerServiceImpl;
 import com.hazelcast.internal.util.ConcurrencyDetection;
+import com.hazelcast.internal.util.CpuPool;
+import com.hazelcast.internal.util.MutableInteger;
 import com.hazelcast.internal.util.concurrent.MPSCQueue;
+import com.hazelcast.internal.util.executor.HazelcastManagedThread;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.properties.HazelcastProperties;
 import com.hazelcast.spi.properties.HazelcastProperty;
-import com.hazelcast.internal.util.MutableInteger;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.util.concurrent.BlockingQueue;
@@ -36,8 +38,8 @@ import static com.hazelcast.client.impl.protocol.codec.builtin.ErrorsCodec.EXCEP
 import static com.hazelcast.client.properties.ClientProperty.RESPONSE_THREAD_COUNT;
 import static com.hazelcast.client.properties.ClientProperty.RESPONSE_THREAD_DYNAMIC;
 import static com.hazelcast.instance.impl.OutOfMemoryErrorDispatcher.onOutOfMemory;
-import static com.hazelcast.spi.impl.operationservice.impl.InboundResponseHandlerSupplier.getIdleStrategy;
 import static com.hazelcast.internal.util.HashUtil.hashToIndex;
+import static com.hazelcast.spi.impl.operationservice.impl.InboundResponseHandlerSupplier.getIdleStrategy;
 
 /**
  * A {@link Supplier} for {@link Supplier} instance that processes responses for client
@@ -75,6 +77,7 @@ public class ClientResponseHandlerSupplier implements Supplier<Consumer<ClientMe
     private final Consumer<ClientMessage> responseHandler;
     private final boolean responseThreadsDynamic;
     private final ConcurrencyDetection concurrencyDetection;
+    private final CpuPool cpuPool = new CpuPool(System.getProperty("responseCpus"));
 
     public ClientResponseHandlerSupplier(AbstractClientInvocationService invocationService,
                                          ConcurrencyDetection concurrencyDetection) {
@@ -82,6 +85,7 @@ public class ClientResponseHandlerSupplier implements Supplier<Consumer<ClientMe
         this.concurrencyDetection = concurrencyDetection;
         this.client = invocationService.client;
         this.logger = invocationService.invocationLogger;
+
 
         HazelcastProperties properties = client.getProperties();
         int responseThreadCount = properties.getInteger(RESPONSE_THREAD_COUNT);
@@ -93,6 +97,7 @@ public class ClientResponseHandlerSupplier implements Supplier<Consumer<ClientMe
         this.responseThreads = new ResponseThread[responseThreadCount];
         for (int k = 0; k < responseThreads.length; k++) {
             responseThreads[k] = new ResponseThread(invocationService.client.getName() + ".responsethread-" + k + "-");
+            responseThreads[k].setCpuPool(cpuPool);
         }
 
         if (responseThreadCount == 0) {
@@ -113,6 +118,7 @@ public class ClientResponseHandlerSupplier implements Supplier<Consumer<ClientMe
         }
         for (ResponseThread responseThread : responseThreads) {
             responseThread.start();
+         //   ThreadAffinity.setThreadAffinity(responseThread, cpuPool.take());
         }
     }
 
@@ -167,7 +173,7 @@ public class ClientResponseHandlerSupplier implements Supplier<Consumer<ClientMe
         }
     }
 
-    private class ResponseThread extends Thread {
+    private class ResponseThread extends HazelcastManagedThread {
         private final BlockingQueue<ClientMessage> responseQueue;
         private final AtomicBoolean started = new AtomicBoolean();
 
@@ -179,7 +185,7 @@ public class ClientResponseHandlerSupplier implements Supplier<Consumer<ClientMe
         }
 
         @Override
-        public void run() {
+        public void executeRun() {
             try {
                 doRun();
             } catch (OutOfMemoryError e) {
@@ -189,7 +195,7 @@ public class ClientResponseHandlerSupplier implements Supplier<Consumer<ClientMe
             }
         }
 
-        private void doRun() {
+        public void doRun() {
             while (!invocationService.isShutdown()) {
                 ClientMessage response;
                 try {

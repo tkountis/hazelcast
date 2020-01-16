@@ -33,6 +33,7 @@ import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.internal.networking.OutboundHandler;
 import com.hazelcast.internal.networking.nio.iobalancer.IOBalancer;
 import com.hazelcast.internal.util.ConcurrencyDetection;
+import com.hazelcast.internal.util.CpuPool;
 import com.hazelcast.internal.util.concurrent.BackoffIdleStrategy;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.LoggingService;
@@ -111,6 +112,8 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
     private volatile NioThread[] inputThreads;
     private volatile NioThread[] outputThreads;
     private volatile ScheduledFuture publishFuture;
+    private final AtomicInteger activeInputThreads = new AtomicInteger();
+    private final AtomicInteger activeOutputThreads = new AtomicInteger();
 
     // Currently this is a coarse grained aggregation of the bytes/send received.
     // In the future you probably want to split this up in member and client and potentially
@@ -124,12 +127,24 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
     @Probe
     private volatile long packetsReceived;
 
+    private final CpuPool cpuPool = new CpuPool(System.getProperty("ioCpus"));
+
     public NioNetworking(Context ctx) {
         this.threadNamePrefix = ctx.threadNamePrefix;
         this.metricsRegistry = ctx.metricsRegistry;
         this.loggingService = ctx.loggingService;
         this.inputThreadCount = ctx.inputThreadCount;
+        if (IOBalancer.adaptiveIOThreadSizing) {
+            this.activeInputThreads.set(4);
+        } else {
+            this.activeInputThreads.set(inputThreadCount);
+        }
         this.outputThreadCount = ctx.outputThreadCount;
+        if (IOBalancer.adaptiveIOThreadSizing) {
+            this.activeOutputThreads.set(4);
+        } else {
+            this.activeOutputThreads.set(outputThreadCount);
+        }
         this.logger = loggingService.getLogger(NioNetworking.class);
         this.errorHandler = ctx.errorHandler;
         this.balancerIntervalSeconds = ctx.balancerIntervalSeconds;
@@ -194,7 +209,6 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
             t.setName(threadNamePrefix + "-NioNetworking-closeListenerExecutor");
             return t;
         });
-
         NioThread[] inThreads = new NioThread[inputThreadCount];
         for (int i = 0; i < inThreads.length; i++) {
             NioThread thread = new NioThread(
@@ -206,6 +220,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
             thread.id = i;
             thread.setSelectorWorkaroundTest(selectorWorkaroundTest);
             inThreads[i] = thread;
+            thread.setCpuPool(cpuPool);
             thread.start();
         }
         this.inputThreads = inThreads;
@@ -221,6 +236,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
             thread.id = i;
             thread.setSelectorWorkaroundTest(selectorWorkaroundTest);
             outThreads[i] = thread;
+            thread.setCpuPool(cpuPool);
             thread.start();
         }
         this.outputThreads = outThreads;
@@ -231,7 +247,14 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
     }
 
     private void startIOBalancer() {
-        ioBalancer = new IOBalancer(inputThreads, outputThreads, threadNamePrefix, balancerIntervalSeconds, loggingService);
+        ioBalancer = new IOBalancer(
+                inputThreads,
+                activeInputThreads,
+                outputThreads,
+                activeOutputThreads,
+                threadNamePrefix,
+                balancerIntervalSeconds,
+                loggingService);
         ioBalancer.start();
     }
 
@@ -278,6 +301,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
         for (NioThread thread : threads) {
             thread.shutdown();
         }
+        cpuPool.reset();
     }
 
     @Override
@@ -305,7 +329,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
     }
 
     private NioOutboundPipeline newOutboundPipeline(NioChannel channel) {
-        int index = hashToIndex(nextOutputThreadIndex.getAndIncrement(), outputThreadCount);
+        int index = hashToIndex(nextOutputThreadIndex.getAndIncrement(), activeOutputThreads.get());
         NioThread[] threads = outputThreads;
         if (threads == null) {
             throw new IllegalStateException("NioNetworking is shutdown!");
@@ -323,7 +347,7 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
     }
 
     private NioInboundPipeline newInboundPipeline(NioChannel channel) {
-        int index = hashToIndex(nextInputThreadIndex.getAndIncrement(), inputThreadCount);
+        int index = hashToIndex(nextInputThreadIndex.getAndIncrement(), activeInputThreads.get());
         NioThread[] threads = inputThreads;
         if (threads == null) {
             throw new IllegalStateException("NioNetworking is shutdown!");
@@ -467,6 +491,8 @@ public final class NioNetworking implements Networking, DynamicMetricsProvider {
         private ChannelErrorHandler errorHandler;
         private int inputThreadCount = 1;
         private int outputThreadCount = 1;
+        private int activeInputThreadCount = 1;
+        private int activeOutputThreadCount = 1;
         private int balancerIntervalSeconds;
         // The selector mode determines how IO threads will block (or not) on the Selector:
         //  select:         this is the default mode, uses Selector.select(long timeout)

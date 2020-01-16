@@ -24,11 +24,11 @@ import com.hazelcast.internal.metrics.Probe;
 import com.hazelcast.internal.metrics.StaticMetricsProvider;
 import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.internal.util.counters.SwCounter;
-import com.hazelcast.internal.util.executor.HazelcastManagedThread;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.PartitionSpecificRunnable;
 import com.hazelcast.spi.impl.operationexecutor.OperationRunner;
-import com.hazelcast.spi.impl.operationservice.Operation;
+import com.hazelcast.internal.util.executor.HazelcastManagedThread;
 
 import java.util.concurrent.TimeUnit;
 
@@ -60,11 +60,11 @@ public abstract class OperationThread extends HazelcastManagedThread implements 
     @Probe
     private final SwCounter completedTotalCount = newSwCounter();
     @Probe
-    private final SwCounter completedPacketCount = newSwCounter();
+    final SwCounter completedPacketCount = newSwCounter();
     @Probe
-    private final SwCounter completedOperationCount = newSwCounter();
+    final SwCounter completedOperationCount = newSwCounter();
     @Probe
-    private final SwCounter completedPartitionSpecificRunnableCount = newSwCounter();
+    final SwCounter completedPartitionSpecificRunnableCount = newSwCounter();
     @Probe
     private final SwCounter completedRunnableCount = newSwCounter();
     @Probe
@@ -100,7 +100,7 @@ public abstract class OperationThread extends HazelcastManagedThread implements 
     public abstract OperationRunner operationRunner(int partitionId);
 
     @Override
-    public final void run() {
+    public final void executeRun() {
         nodeExtension.onThreadStart(this);
         try {
             while (!shutdown) {
@@ -138,6 +138,7 @@ public abstract class OperationThread extends HazelcastManagedThread implements 
             }
             completedTotalCount.inc();
         } catch (Throwable t) {
+            t.printStackTrace();
             errorCount.inc();
             inspectOutOfMemoryError(t);
             logger.severe("Failed to process: " + task + " on: " + getName(), t);
@@ -146,19 +147,19 @@ public abstract class OperationThread extends HazelcastManagedThread implements 
         }
     }
 
-    private void process(Operation operation) {
+    protected void process(Operation operation) {
         currentRunner = operationRunner(operation.getPartitionId());
         currentRunner.run(operation);
         completedOperationCount.inc();
     }
 
-    private void process(Packet packet) throws Exception {
+    protected void process(Packet packet) throws Exception {
         currentRunner = operationRunner(packet.getPartitionId());
         currentRunner.run(packet);
         completedPacketCount.inc();
     }
 
-    private void process(PartitionSpecificRunnable runnable) {
+    protected void process(PartitionSpecificRunnable runnable) {
         currentRunner = operationRunner(runnable.getPartitionId());
         currentRunner.run(runnable);
         completedPartitionSpecificRunnableCount.inc();

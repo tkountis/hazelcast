@@ -22,6 +22,7 @@ import com.hazelcast.internal.metrics.ProbeLevel;
 import com.hazelcast.internal.networking.ChannelErrorHandler;
 import com.hazelcast.internal.util.concurrent.IdleStrategy;
 import com.hazelcast.internal.util.counters.SwCounter;
+import com.hazelcast.internal.util.executor.HazelcastManagedThread;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.operationexecutor.OperationHostileThread;
 
@@ -45,7 +46,7 @@ import static java.lang.Math.max;
 import static java.lang.System.currentTimeMillis;
 
 @ExcludedMetricTargets(MANAGEMENT_CENTER)
-public class NioThread extends Thread implements OperationHostileThread {
+public class NioThread extends HazelcastManagedThread implements OperationHostileThread {
 
     // WARNING: This value has significant effect on idle CPU usage!
     private static final int SELECT_WAIT_TIME_MILLIS
@@ -215,7 +216,7 @@ public class NioThread extends Thread implements OperationHostileThread {
     }
 
     @Override
-    public void run() {
+    protected void executeRun() {
         // This outer loop is a bit complex but it takes care of a lot of stuff:
         // * it calls runSelectNowLoop or runSelectLoop based on selectNow enabled or not.
         // * handles backoff and retrying in case if io exception is thrown

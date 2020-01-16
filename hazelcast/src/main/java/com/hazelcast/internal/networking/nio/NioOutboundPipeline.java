@@ -220,7 +220,7 @@ public final class NioOutboundPipeline
 
     // executes the pipeline. Either on the calling thread or on th owning NIO thread.
     private void executePipeline() {
-         if (writeThroughEnabled && !concurrencyDetection.isDetected()) {
+        if (writeThroughEnabled && !concurrencyDetection.isDetected()) {
             // we are allowed to do a write through, so lets process the request on the calling thread
             try {
                 process();
@@ -244,7 +244,7 @@ public final class NioOutboundPipeline
             if (prevState == State.RESCHEDULE) {
                 break;
             } else {
-                  if (scheduled.compareAndSet(prevState, State.RESCHEDULE)) {
+                if (scheduled.compareAndSet(prevState, State.RESCHEDULE)) {
                     if (prevState == State.UNSCHEDULED || prevState == State.BLOCKED) {
                         ownerAddTaskAndWakeup(this);
                     }

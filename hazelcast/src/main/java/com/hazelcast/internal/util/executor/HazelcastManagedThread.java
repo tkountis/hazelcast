@@ -17,6 +17,10 @@
 package com.hazelcast.internal.util.executor;
 
 import com.hazelcast.instance.impl.OutOfMemoryErrorDispatcher;
+import com.hazelcast.internal.util.CpuPool;
+import net.openhft.affinity.AffinityLock;
+
+import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 
 /**
  * Base class for all Hazelcast threads to manage them from a single point.
@@ -26,6 +30,9 @@ import com.hazelcast.instance.impl.OutOfMemoryErrorDispatcher;
  * {@link com.hazelcast.internal.util.executor.HazelcastManagedThread#afterRun} methods.
  */
 public class HazelcastManagedThread extends Thread {
+
+    private CpuPool cpuPool = CpuPool.EMPTY_POOL;
+    private int cpu=-1;
 
     public HazelcastManagedThread() {
     }
@@ -40,6 +47,23 @@ public class HazelcastManagedThread extends Thread {
 
     public HazelcastManagedThread(Runnable target, String name) {
         super(target, name);
+    }
+
+    /**
+     * Sets the CPU pool of this HazelcastManagedThread. This can be used for thread affinity.
+     *
+     * This method should be called before the Thread is started.
+     *
+     * @param cpuPool the CpuPool
+     * @throws NullPointerException if cpuPool is null.
+     */
+    public void setCpuPool(CpuPool cpuPool) {
+        this.cpuPool = cpuPool;
+        this.cpuPool = checkNotNull(cpuPool);
+    }
+
+    public int getCpu() {
+        return cpu;
     }
 
     @Override
@@ -73,8 +97,29 @@ public class HazelcastManagedThread extends Thread {
 
     /**
      * Manages the thread lifecycle and can be overridden to customize if needed.
+     * Manages the thread lifecycle.
      */
-    public void run() {
+    public final void run() {
+        if (cpuPool.isDisabled()) {
+            run0();
+        } else {
+            cpu = cpuPool.take();
+            if (cpu == -1) {
+                run0();
+                return;
+            }
+
+            AffinityLock lock = AffinityLock.acquireLock(cpu);
+            try {
+                run0();
+            } finally {
+                //pool.add(cpu);
+                lock.release();
+            }
+        }
+    }
+
+    private void run0() {
         try {
             beforeRun();
             executeRun();
@@ -85,3 +130,4 @@ public class HazelcastManagedThread extends Thread {
         }
     }
 }
+
