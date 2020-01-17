@@ -155,12 +155,15 @@ public class ThreadAffinity {
     public static Map<Integer,Float> cpuLoad(List<Integer> cpus) {
         StringBuffer sb = new StringBuffer("mpstat -P ");
         for (int k = 0; k < cpus.size(); k++) {
+            if (cpus.get(k) == -1) {
+                continue;
+            }
             if (k > 0) {
                 sb.append(",");
             }
             sb.append(cpus.get(k));
         }
-        sb.append(" 1 1");
+        sb.append(" 1 2");
         System.out.println("command:" + sb);
         String result = Bash.bash(sb.toString());
         System.out.println("results:" + result);
@@ -168,6 +171,9 @@ public class ThreadAffinity {
         //System.out.println("---------------------------");
         Map<Integer,Float> loadPerCpu = new HashMap<>();
         for (int k = 0; k < cpus.size(); k++) {
+            if (cpus.get(k) == -1) {
+                continue;
+            }
             String line = lines[lines.length - 1 - k];
            // System.out.println("----"+line);
             String[] fields = line.split("\\s+");

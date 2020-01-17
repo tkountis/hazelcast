@@ -62,6 +62,7 @@ import static com.hazelcast.spi.properties.ClusterProperty.PARTITION_COUNT;
 import static com.hazelcast.spi.properties.ClusterProperty.PARTITION_OPERATION_THREAD_COUNT;
 import static com.hazelcast.spi.properties.ClusterProperty.PRIORITY_GENERIC_OPERATION_THREAD_COUNT;
 
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
@@ -92,7 +93,7 @@ public final class OperationExecutorImpl implements OperationExecutor, StaticMet
     private static final HazelcastProperty IDLE_STRATEGY
             = new HazelcastProperty("hazelcast.operation.partitionthread.idlestrategy", "block");
     private static final int TERMINATION_TIMEOUT_SECONDS = 3;
-    public static final int rescaleDelayMs = Integer.getInteger("partitionRescaleDelayMs", 2000);
+    public static final int rescaleDelayMs = Integer.getInteger("partitionRescaleDelayMs", 5000);
 
     private final ILogger logger;
 
@@ -595,9 +596,12 @@ public final class OperationExecutorImpl implements OperationExecutor, StaticMet
                     float load = activePartitionCpuLoad();
                     System.out.println("Load: " + load);
                     if (load < lowWaterMarkLoad) {
-                        scaleDown(load);
+                        float diff = (lowWaterMarkLoad - load) / lowWaterMarkLoad;
+                        scaleDown(load, diff);
                     } else if (load > highWaterMarkLoad) {
-                        scaleUp(load);
+                        //todo diff calculation based on WaterMarks vs based on previous
+                        float diff = Math.abs((highWaterMarkLoad - load) / highWaterMarkLoad);
+                        scaleUp(load, diff);
                     }
                 }
             } catch (InterruptedException e) {
@@ -606,20 +610,24 @@ public final class OperationExecutorImpl implements OperationExecutor, StaticMet
             }
         }
 
-        private void scaleUp(float load) throws InterruptedException {
+        private void scaleUp(float load, float diff) throws InterruptedException {
             if (activePartitionThreads < partitionThreads.length) {
-                int newActivePartitionThreads = activePartitionThreads + 1;
-                System.out.println("Scaling up to " + newActivePartitionThreads + " partition threads, load was " + load + "%");
+                int maxScaleUp = partitionThreads.length - activePartitionThreads;
+                int newActivePartitionThreads = activePartitionThreads + Math.max(1, Math.round(maxScaleUp * diff));
+                System.out.println("Scaling up from: " + activePartitionThreads + " to: " + newActivePartitionThreads
+                        + " partition threads, total load: " + load + "% diff: " + diff);
                 updateActivePartitionThreads(newActivePartitionThreads);
             } else {
                 System.out.println("Can't scale up, maximum number of partition threads is already active");
             }
         }
 
-        private void scaleDown(float load) throws InterruptedException {
+        private void scaleDown(float load, float diff) throws InterruptedException {
             if (activePartitionThreads > 2) {
-                int newActivePartitionThreads = activePartitionThreads - 1;
-                System.out.println("Scaling down to " + newActivePartitionThreads + " partition threads, load was " + load + "%");
+                int maxScaleDown = activePartitionThreads - 2;
+                int newActivePartitionThreads = activePartitionThreads - Math.max(1, Math.round((maxScaleDown * diff)));
+                System.out.println("Scaling down from: " + activePartitionThreads + " to: " + newActivePartitionThreads
+                        + " partition threads, load: " + load + "% diff: " + diff );
                 updateActivePartitionThreads(newActivePartitionThreads);
             } else {
                 System.out.println("Can't scale down, minimum number of partition threads is already active");
@@ -627,10 +635,14 @@ public final class OperationExecutorImpl implements OperationExecutor, StaticMet
         }
 
         private void updateActivePartitionThreads(int newActivePartitionThreads) throws InterruptedException {
+            long safepointRequestTime = System.nanoTime();
             CountDownLatch startSavepoint = new CountDownLatch(partitionThreads.length);
             CountDownLatch exitSavepoint = new CountDownLatch(1);
             for (PartitionOperationThread t : partitionThreads) {
                 t.queue.add((Runnable) () -> {
+                    long safepointStartTime = System.nanoTime();
+                    long tts = safepointStartTime - safepointRequestTime;
+                    System.out.println("Time to safepoint " + Thread.currentThread().getName() + " - " + NANOSECONDS.toMillis(tts) + "ms");
                     startSavepoint.countDown();
                     try {
                         exitSavepoint.await();
@@ -638,15 +650,23 @@ public final class OperationExecutorImpl implements OperationExecutor, StaticMet
                         Thread.currentThread().interrupt();
                         throw new RuntimeException(e);
                     }
+
+                    long tis = System.nanoTime() - safepointStartTime;
+                    System.out.println("Time in safepoint " + Thread.currentThread().getName() + " - " + NANOSECONDS.toMillis(tis) + "ms");
                 }, true);
             }
             startSavepoint.await();
+            long safepointArrivedTime = System.nanoTime();
+            long tts = safepointArrivedTime - safepointRequestTime;
+            System.out.println("Global time to safepoint " + NANOSECONDS.toMillis(tts) + "ms");
 
             activePartitionThreads = newActivePartitionThreads;
             for (PartitionOperationThread t : partitionThreads) {
                 t.activePartitionThreads = activePartitionThreads;
             }
             exitSavepoint.countDown();
+            long tis = System.nanoTime() - safepointArrivedTime;
+            System.out.println("Global time in safepoint " + NANOSECONDS.toMillis(tis) + "ms");
         }
 
         private float activePartitionCpuLoad() {

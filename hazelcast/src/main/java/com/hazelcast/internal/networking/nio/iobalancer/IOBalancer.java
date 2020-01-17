@@ -161,10 +161,9 @@ public class IOBalancer {
     }
 
     void rebalance() {
-        if (scheduleMigrationIfNeeded(inLoadTracker) || scheduleMigrationIfNeeded(outLoadTracker)) {
-            return;
-        }
-
+        scheduleMigrationIfNeeded(inLoadTracker);
+        scheduleMigrationIfNeeded(outLoadTracker);
+        
         rescale("input", inputThreads, activeInputThreads);
         rescale("output", outputTreads, activeOutputThreads);
     }
