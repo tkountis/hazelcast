@@ -18,6 +18,7 @@ package com.hazelcast.internal.nio;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.networking.OutboundFrame;
+import com.hazelcast.internal.nio.tcp.DefaultConnection;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -25,7 +26,7 @@ import java.security.cert.Certificate;
 
 /**
  * Represents a 'connection' between two machines. The most important implementation is the
- * {@link com.hazelcast.internal.nio.tcp.TcpIpConnection}.
+ * {@link DefaultConnection}.
  */
 public interface Connection {
 
@@ -59,7 +60,7 @@ public interface Connection {
      */
     String getConnectionType();
 
-    EndpointManager getEndpointManager();
+    Endpoint getEndpoint();
 
     /**
      * Sets the type of the connection
@@ -99,7 +100,7 @@ public interface Connection {
      *
      * @return the Address.
      */
-    Address getEndPoint();
+    Address getRemoteAddress();
 
     /**
      * The remote port.

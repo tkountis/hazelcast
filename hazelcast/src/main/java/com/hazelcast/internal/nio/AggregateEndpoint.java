@@ -18,12 +18,12 @@ package com.hazelcast.internal.nio;
 
 import com.hazelcast.instance.EndpointQualifier;
 import com.hazelcast.internal.networking.NetworkStats;
-import com.hazelcast.internal.nio.tcp.TcpIpConnection;
+import com.hazelcast.internal.nio.tcp.DefaultConnection;
 
 import java.util.Collection;
 import java.util.Map;
 
-public interface AggregateEndpointManager
+public interface AggregateEndpoint
         extends ConnectionListenable {
 
     /**
@@ -31,14 +31,14 @@ public interface AggregateEndpointManager
      *
      * @return active connections
      */
-    Collection<TcpIpConnection> getConnections();
+    Collection<DefaultConnection> getConnections();
 
     /**
      * Returns all active connections from the underlying EndpointManagers.
      *
      * @return active connections
      */
-    Collection<TcpIpConnection> getActiveConnections();
+    Collection<DefaultConnection> getActiveConnections();
 
     /**
      * Returns network stats for inbound and outbound traffic per {@link EndpointQualifier}.

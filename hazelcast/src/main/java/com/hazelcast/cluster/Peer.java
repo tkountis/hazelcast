@@ -28,7 +28,7 @@ import java.util.UUID;
  * @see Member
  * @see Client
  */
-public interface Endpoint {
+public interface Peer {
 
     /**
      * Returns the UUID of this endpoint

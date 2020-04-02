@@ -29,12 +29,12 @@ import com.hazelcast.internal.metrics.ProbeLevel;
 import com.hazelcast.internal.networking.ChannelInitializerProvider;
 import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.internal.networking.ServerSocketRegistry;
-import com.hazelcast.internal.nio.AggregateEndpointManager;
-import com.hazelcast.internal.nio.DefaultAggregateEndpointManager;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.AggregateEndpoint;
+import com.hazelcast.internal.nio.DefaultAggregateEndpoint;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.IOService;
 import com.hazelcast.internal.nio.NetworkingService;
-import com.hazelcast.internal.nio.UnifiedAggregateEndpointManager;
+import com.hazelcast.internal.nio.UnifiedAggregateEndpoint;
 import com.hazelcast.internal.util.concurrent.ThreadFactoryImpl;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.LoggingService;
@@ -61,7 +61,8 @@ import static com.hazelcast.spi.properties.ClusterProperty.NETWORK_STATS_REFRESH
 import static java.util.Collections.singleton;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public final class TcpIpNetworkingService implements NetworkingService<TcpIpConnection> {
+public final class NetworkingServiceImpl
+        implements NetworkingService<DefaultConnection> {
 
     private static final int SCHEDULER_POOL_SIZE = 4;
 
@@ -77,32 +78,32 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
     private final int refreshStatsIntervalSeconds;
     private final ServerSocketRegistry registry;
 
-    private final ConcurrentMap<EndpointQualifier, EndpointManager<TcpIpConnection>> endpointManagers = new ConcurrentHashMap<>();
-    private final TcpIpUnifiedEndpointManager unifiedEndpointManager;
-    private final AggregateEndpointManager aggregateEndpointManager;
+    private final ConcurrentMap<EndpointQualifier, Endpoint<DefaultConnection>> endpointManagers = new ConcurrentHashMap<>();
+    private final UnifiedEndpoint unifiedEndpointManager;
+    private final AggregateEndpoint aggregateEndpointManager;
 
     private final ScheduledExecutorService scheduler;
 
     // accessed only in synchronized block
-    private final AtomicReference<TcpIpAcceptor> acceptorRef = new AtomicReference<>();
+    private final AtomicReference<Acceptor> acceptorRef = new AtomicReference<>();
 
     private volatile boolean live;
 
-    TcpIpNetworkingService(Config config, IOService ioService,
-                           ServerSocketRegistry registry,
-                           LoggingService loggingService,
-                           MetricsRegistry metricsRegistry,
-                           Networking networking,
-                           ChannelInitializerProvider channelInitializerProvider) {
+    NetworkingServiceImpl(Config config, IOService ioService,
+                          ServerSocketRegistry registry,
+                          LoggingService loggingService,
+                          MetricsRegistry metricsRegistry,
+                          Networking networking,
+                          ChannelInitializerProvider channelInitializerProvider) {
         this(config, ioService, registry, loggingService, metricsRegistry, networking, channelInitializerProvider, null);
     }
 
-    public TcpIpNetworkingService(Config config, IOService ioService,
-                                  ServerSocketRegistry registry,
-                                  LoggingService loggingService,
-                                  MetricsRegistry metricsRegistry, Networking networking,
-                                  ChannelInitializerProvider channelInitializerProvider,
-                                  HazelcastProperties properties) {
+    public NetworkingServiceImpl(Config config, IOService ioService,
+                                 ServerSocketRegistry registry,
+                                 LoggingService loggingService,
+                                 MetricsRegistry metricsRegistry, Networking networking,
+                                 ChannelInitializerProvider channelInitializerProvider,
+                                 HazelcastProperties properties) {
 
         this.ioService = ioService;
         this.networking = networking;
@@ -110,11 +111,11 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
         this.refreshStatsTask = new RefreshNetworkStatsTask(endpointManagers);
         this.refreshStatsIntervalSeconds = properties != null ? properties.getInteger(NETWORK_STATS_REFRESH_INTERVAL_SECONDS) : 1;
         this.registry = registry;
-        this.logger = loggingService.getLogger(TcpIpNetworkingService.class);
+        this.logger = loggingService.getLogger(NetworkingServiceImpl.class);
         this.scheduler = new ScheduledThreadPoolExecutor(SCHEDULER_POOL_SIZE,
                 new ThreadFactoryImpl(createThreadPoolName(ioService.getHazelcastName(), "TcpIpNetworkingService")));
         if (registry.holdsUnifiedSocket()) {
-            unifiedEndpointManager = new TcpIpUnifiedEndpointManager(this, null, channelInitializerProvider,
+            unifiedEndpointManager = new UnifiedEndpoint(this, null, channelInitializerProvider,
                     ioService, loggingService, properties);
         } else {
             unifiedEndpointManager = null;
@@ -122,9 +123,9 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
 
         initEndpointManager(config, ioService, loggingService, channelInitializerProvider, properties);
         if (unifiedEndpointManager != null) {
-            this.aggregateEndpointManager = new UnifiedAggregateEndpointManager(unifiedEndpointManager, endpointManagers);
+            this.aggregateEndpointManager = new UnifiedAggregateEndpoint(unifiedEndpointManager, endpointManagers);
         } else {
-            this.aggregateEndpointManager = new DefaultAggregateEndpointManager(endpointManagers);
+            this.aggregateEndpointManager = new DefaultAggregateEndpoint(endpointManagers);
             refreshStatsTask.registerMetrics(metricsRegistry);
         }
 
@@ -137,27 +138,27 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
                                      ChannelInitializerProvider channelInitializerProvider,
                                      HazelcastProperties properties) {
         if (unifiedEndpointManager != null) {
-            endpointManagers.put(MEMBER, new MemberViewUnifiedEndpointManager(unifiedEndpointManager));
-            endpointManagers.put(CLIENT, new ClientViewUnifiedEndpointManager(unifiedEndpointManager));
-            endpointManagers.put(REST,  new TextViewUnifiedEndpointManager(unifiedEndpointManager, true));
-            endpointManagers.put(MEMCACHE,  new TextViewUnifiedEndpointManager(unifiedEndpointManager, false));
+            endpointManagers.put(MEMBER, new MemberViewUnifiedEndpoint(unifiedEndpointManager));
+            endpointManagers.put(CLIENT, new ClientViewUnifiedEndpoint(unifiedEndpointManager));
+            endpointManagers.put(REST,  new TextViewUnifiedEndpoint(unifiedEndpointManager, true));
+            endpointManagers.put(MEMCACHE,  new TextViewUnifiedEndpoint(unifiedEndpointManager, false));
         } else {
             for (EndpointConfig endpointConfig : config.getAdvancedNetworkConfig().getEndpointConfigs().values()) {
                 EndpointQualifier qualifier = endpointConfig.getQualifier();
-                EndpointManager em = newEndpointManager(ioService, endpointConfig, channelInitializerProvider,
+                Endpoint em = newEndpointManager(ioService, endpointConfig, channelInitializerProvider,
                         loggingService, properties, singleton(endpointConfig.getProtocolType()));
                 endpointManagers.put(qualifier, em);
             }
         }
     }
 
-    private EndpointManager<TcpIpConnection> newEndpointManager(IOService ioService,
-                                                                EndpointConfig endpointConfig,
-                                                                ChannelInitializerProvider channelInitializerProvider,
-                                                                LoggingService loggingService,
-                                                                HazelcastProperties properties,
-                                                                Set<ProtocolType> supportedProtocolTypes) {
-        return new TcpIpEndpointManager(this, endpointConfig, channelInitializerProvider, ioService, loggingService,
+    private Endpoint<DefaultConnection> newEndpointManager(IOService ioService,
+                                                           EndpointConfig endpointConfig,
+                                                           ChannelInitializerProvider channelInitializerProvider,
+                                                           LoggingService loggingService,
+                                                           HazelcastProperties properties,
+                                                           Set<ProtocolType> supportedProtocolTypes) {
+        return new DefaultEndpoint(this, endpointConfig, channelInitializerProvider, ioService, loggingService,
                 properties, supportedProtocolTypes);
     }
 
@@ -214,8 +215,8 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
         if (unifiedEndpointManager != null) {
             unifiedEndpointManager.reset(false);
         } else {
-            for (EndpointManager endpointManager : endpointManagers.values()) {
-                ((TcpIpEndpointManager) endpointManager).reset(false);
+            for (Endpoint endpointManager : endpointManagers.values()) {
+                ((DefaultEndpoint) endpointManager).reset(false);
             }
         }
 
@@ -231,8 +232,8 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
         if (unifiedEndpointManager != null) {
             unifiedEndpointManager.reset(true);
         } else {
-            for (EndpointManager endpointManager : endpointManagers.values()) {
-                ((TcpIpEndpointManager) endpointManager).reset(true);
+            for (Endpoint endpointManager : endpointManagers.values()) {
+                ((DefaultEndpoint) endpointManager).reset(true);
             }
         }
     }
@@ -244,26 +245,26 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
      * Note: You can't create a connection through it, you will have to access the respective endpoint for that.
      *
      * In an environment with a unified endpoint, this will also act as a wrapper on the views of the unified endpoint
-     * (see {@link MemberViewUnifiedEndpointManager} and the others).
+     * (see {@link MemberViewUnifiedEndpoint} and the others).
      *
      * @return
      */
     @Override
-    public AggregateEndpointManager getAggregateEndpointManager() {
+    public AggregateEndpoint getAggregateEndpoint() {
         return aggregateEndpointManager;
     }
 
     /**
      * Returns the respective endpoint manager based on the qualifier.
-     * Under unified endpoint environments, this will return the respective view of the {@link TcpIpUnifiedEndpointManager}
-     * eg. {@link MemberViewUnifiedEndpointManager} or {@link ClientViewUnifiedEndpointManager} which report connections based
+     * Under unified endpoint environments, this will return the respective view of the {@link UnifiedEndpoint}
+     * eg. {@link MemberViewUnifiedEndpoint} or {@link ClientViewUnifiedEndpoint} which report connections based
      * on the qualifier, but they register/create connection directly on the Unified manager.
      *
      * @param qualifier
      * @return
      */
-    public EndpointManager<TcpIpConnection> getEndpointManager(EndpointQualifier qualifier) {
-        EndpointManager<TcpIpConnection> mgr = endpointManagers.get(qualifier);
+    public Endpoint<DefaultConnection> getEndpoint(EndpointQualifier qualifier) {
+        Endpoint<DefaultConnection> mgr = endpointManagers.get(qualifier);
         if (mgr == null) {
             logger.finest("An endpoint manager for qualifier " + qualifier + " was never registered.");
         }
@@ -271,7 +272,7 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
         return mgr;
     }
 
-    EndpointManager<TcpIpConnection> getUnifiedOrDedicatedEndpointManager(EndpointQualifier qualifier) {
+    Endpoint<DefaultConnection> getUnifiedOrDedicatedEndpointManager(EndpointQualifier qualifier) {
         return unifiedEndpointManager != null ? unifiedEndpointManager : endpointManagers.get(qualifier);
     }
 
@@ -286,11 +287,11 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
             shutdownAcceptor();
         }
 
-        acceptorRef.set(new TcpIpAcceptor(registry, this, ioService).start());
+        acceptorRef.set(new Acceptor(registry, this, ioService).start());
     }
 
     private void shutdownAcceptor() {
-        TcpIpAcceptor acceptor = acceptorRef.get();
+        Acceptor acceptor = acceptorRef.get();
         if (acceptor != null) {
             acceptor.shutdown();
             acceptorRef.set(null);
@@ -310,16 +311,16 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
      * <p>
      * Only used when Advanced Networking is enabled.
      *
-     * @see EndpointManager#getNetworkStats()
-     * @see AggregateEndpointManager#getNetworkStats()
+     * @see Endpoint#getNetworkStats()
+     * @see AggregateEndpoint#getNetworkStats()
      */
     private static final class RefreshNetworkStatsTask implements Runnable {
 
-        private final ConcurrentMap<EndpointQualifier, EndpointManager<TcpIpConnection>> endpointManagers;
+        private final ConcurrentMap<EndpointQualifier, Endpoint<DefaultConnection>> endpointManagers;
         private final EnumMap<ProtocolType, AtomicLong> bytesReceivedPerProtocol;
         private final EnumMap<ProtocolType, AtomicLong> bytesSentPerProtocol;
 
-        RefreshNetworkStatsTask(ConcurrentMap<EndpointQualifier, EndpointManager<TcpIpConnection>> endpointManagers) {
+        RefreshNetworkStatsTask(ConcurrentMap<EndpointQualifier, Endpoint<DefaultConnection>> endpointManagers) {
             this.endpointManagers = endpointManagers;
             bytesReceivedPerProtocol = new EnumMap<>(ProtocolType.class);
             bytesSentPerProtocol = new EnumMap<>(ProtocolType.class);
@@ -344,8 +345,8 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
                 long bytesReceived = 0;
                 long bytesSent = 0;
 
-                for (EndpointManager endpointManager : endpointManagers.values()) {
-                    TcpIpEndpointManager tcpIpEndpointManager = (TcpIpEndpointManager) endpointManager;
+                for (Endpoint endpointManager : endpointManagers.values()) {
+                    DefaultEndpoint tcpIpEndpointManager = (DefaultEndpoint) endpointManager;
                     tcpIpEndpointManager.refreshNetworkStats();
 
                     if (type == tcpIpEndpointManager.getEndpointQualifier().getType()) {
@@ -362,13 +363,13 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
     }
 
     private static final class MetricsProvider implements DynamicMetricsProvider {
-        private final AtomicReference<TcpIpAcceptor> acceptorRef;
-        private final ConcurrentMap<EndpointQualifier, EndpointManager<TcpIpConnection>> endpointManagers;
-        private final TcpIpUnifiedEndpointManager unifiedEndpointManager;
+        private final AtomicReference<Acceptor> acceptorRef;
+        private final ConcurrentMap<EndpointQualifier, Endpoint<DefaultConnection>> endpointManagers;
+        private final UnifiedEndpoint unifiedEndpointManager;
 
-        private MetricsProvider(AtomicReference<TcpIpAcceptor> acceptorRef,
-                                ConcurrentMap<EndpointQualifier, EndpointManager<TcpIpConnection>> endpointManagers,
-                                TcpIpUnifiedEndpointManager unifiedEndpointManager) {
+        private MetricsProvider(AtomicReference<Acceptor> acceptorRef,
+                                ConcurrentMap<EndpointQualifier, Endpoint<DefaultConnection>> endpointManagers,
+                                UnifiedEndpoint unifiedEndpointManager) {
             this.acceptorRef = acceptorRef;
             this.endpointManagers = endpointManagers;
             this.unifiedEndpointManager = unifiedEndpointManager;
@@ -379,12 +380,12 @@ public final class TcpIpNetworkingService implements NetworkingService<TcpIpConn
             descriptor.withPrefix(TCP_PREFIX);
             context.collect(descriptor, this);
 
-            TcpIpAcceptor acceptor = this.acceptorRef.get();
+            Acceptor acceptor = this.acceptorRef.get();
             if (acceptor != null) {
                 acceptor.provideDynamicMetrics(descriptor.copy(), context);
             }
 
-            for (EndpointManager<TcpIpConnection> manager : this.endpointManagers.values()) {
+            for (Endpoint<DefaultConnection> manager : this.endpointManagers.values()) {
                 if (manager instanceof DynamicMetricsProvider) {
                     ((DynamicMetricsProvider) manager).provideDynamicMetrics(descriptor.copy(), context);
                 }

@@ -19,7 +19,7 @@ package com.hazelcast.osgi.impl;
 import com.hazelcast.cardinality.CardinalityEstimator;
 import com.hazelcast.client.ClientService;
 import com.hazelcast.cluster.Cluster;
-import com.hazelcast.cluster.Endpoint;
+import com.hazelcast.cluster.Peer;
 import com.hazelcast.collection.IList;
 import com.hazelcast.collection.IQueue;
 import com.hazelcast.collection.ISet;
@@ -147,7 +147,7 @@ class HazelcastOSGiInstanceImpl
 
     @Nonnull
     @Override
-    public Endpoint getLocalEndpoint() {
+    public Peer getLocalEndpoint() {
         return delegatedInstance.getLocalEndpoint();
     }
 

@@ -31,7 +31,7 @@ import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.nio.ConnectionLifecycleListener;
 import com.hazelcast.internal.nio.ConnectionListener;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.IOService;
 import com.hazelcast.internal.nio.NetworkingService;
 import com.hazelcast.internal.nio.Packet;
@@ -83,8 +83,8 @@ import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
 
 @SuppressWarnings("checkstyle:methodcount")
-public class TcpIpEndpointManager
-        implements EndpointManager<TcpIpConnection>, Consumer<Packet>, DynamicMetricsProvider {
+public class DefaultEndpoint
+        implements Endpoint<DefaultConnection>, Consumer<Packet>, DynamicMetricsProvider {
 
     private static final int RETRY_NUMBER = 5;
     private static final long DELAY_FACTOR = 100L;
@@ -93,10 +93,10 @@ public class TcpIpEndpointManager
     final Set<Address> connectionsInProgress = newSetFromMap(new ConcurrentHashMap<>());
 
     @Probe(name = TCP_METRIC_ENDPOINT_MANAGER_COUNT, level = MANDATORY)
-    final ConcurrentHashMap<Address, TcpIpConnection> connectionsMap = new ConcurrentHashMap<>(100);
+    final ConcurrentHashMap<Address, DefaultConnection> connectionsMap = new ConcurrentHashMap<>(100);
 
     @Probe(name = TCP_METRIC_ENDPOINT_MANAGER_ACTIVE_COUNT, level = MANDATORY)
-    final Set<TcpIpConnection> activeConnections = newSetFromMap(new ConcurrentHashMap<>());
+    final Set<DefaultConnection> activeConnections = newSetFromMap(new ConcurrentHashMap<>());
 
     private final ILogger logger;
     private final IOService ioService;
@@ -104,18 +104,18 @@ public class TcpIpEndpointManager
     private final EndpointQualifier endpointQualifier;
     private final ChannelInitializerProvider channelInitializerProvider;
     private final NetworkingService networkingService;
-    private final TcpIpConnector connector;
+    private final ConnectionFactory connector;
     private final BindHandler bindHandler;
     private final NetworkStatsImpl networkStats;
 
     @Probe(name = TCP_METRIC_ENDPOINT_MANAGER_CONNECTION_LISTENER_COUNT)
     private final Set<ConnectionListener> connectionListeners = new CopyOnWriteArraySet<>();
 
-    private final ConstructorFunction<Address, TcpIpConnectionErrorHandler> monitorConstructor =
-            endpoint -> new TcpIpConnectionErrorHandler(TcpIpEndpointManager.this, endpoint);
+    private final ConstructorFunction<Address, ConnectionErrorHandler> monitorConstructor =
+            endpoint -> new ConnectionErrorHandler(DefaultEndpoint.this, endpoint);
 
     @Probe(name = TCP_METRIC_ENDPOINT_MANAGER_MONITOR_COUNT)
-    private final ConcurrentHashMap<Address, TcpIpConnectionErrorHandler> monitors = new ConcurrentHashMap<>(100);
+    private final ConcurrentHashMap<Address, ConnectionErrorHandler> monitors = new ConcurrentHashMap<>(100);
 
     private final AtomicInteger connectionIdGen = new AtomicInteger();
 
@@ -130,17 +130,17 @@ public class TcpIpEndpointManager
 
     private final EndpointConnectionLifecycleListener connectionLifecycleListener = new EndpointConnectionLifecycleListener();
 
-    TcpIpEndpointManager(NetworkingService networkingService, EndpointConfig endpointConfig,
-                         ChannelInitializerProvider channelInitializerProvider, IOService ioService,
-                         LoggingService loggingService, HazelcastProperties properties,
-                         Set<ProtocolType> supportedProtocolTypes) {
+    DefaultEndpoint(NetworkingService networkingService, EndpointConfig endpointConfig,
+                    ChannelInitializerProvider channelInitializerProvider, IOService ioService,
+                    LoggingService loggingService, HazelcastProperties properties,
+                    Set<ProtocolType> supportedProtocolTypes) {
         this.networkingService = networkingService;
         this.endpointConfig = endpointConfig;
         this.endpointQualifier = endpointConfig != null ? endpointConfig.getQualifier() : null;
         this.channelInitializerProvider = channelInitializerProvider;
         this.ioService = ioService;
-        this.logger = loggingService.getLogger(TcpIpEndpointManager.class);
-        this.connector = new TcpIpConnector(this);
+        this.logger = loggingService.getLogger(DefaultEndpoint.class);
+        this.connector = new ConnectionFactory(this);
 
         boolean spoofingChecks = properties != null && properties.getBoolean(ClusterProperty.BIND_SPOOFING_CHECKS);
         this.bindHandler = new BindHandler(this, ioService, logger, spoofingChecks, supportedProtocolTypes);
@@ -160,11 +160,11 @@ public class TcpIpEndpointManager
         return endpointQualifier;
     }
 
-    public Collection<TcpIpConnection> getActiveConnections() {
+    public Collection<DefaultConnection> getActiveConnections() {
         return unmodifiableSet(activeConnections);
     }
 
-    public Collection<TcpIpConnection> getConnections() {
+    public Collection<DefaultConnection> getConnections() {
         return unmodifiableCollection(new HashSet<>(connectionsMap.values()));
     }
 
@@ -180,18 +180,18 @@ public class TcpIpEndpointManager
     }
 
     @Override
-    public TcpIpConnection getConnection(Address address) {
+    public DefaultConnection getConnection(Address address) {
         return connectionsMap.get(address);
     }
 
     @Override
-    public TcpIpConnection getOrConnect(Address address) {
+    public DefaultConnection getOrConnect(Address address) {
         return getOrConnect(address, false);
     }
 
     @Override
-    public TcpIpConnection getOrConnect(final Address address, final boolean silent) {
-        TcpIpConnection connection = connectionsMap.get(address);
+    public DefaultConnection getOrConnect(final Address address, final boolean silent) {
+        DefaultConnection connection = connectionsMap.get(address);
         if (connection == null && networkingService.isLive()) {
             if (connectionsInProgress.add(address)) {
                 connector.asyncConnect(address, silent);
@@ -201,7 +201,7 @@ public class TcpIpEndpointManager
     }
 
     @Override
-    public synchronized boolean registerConnection(final Address remoteEndPoint, final TcpIpConnection connection) {
+    public synchronized boolean registerConnection(final Address remoteEndPoint, final DefaultConnection connection) {
         try {
             if (remoteEndPoint.equals(ioService.getThisAddress())) {
                 return false;
@@ -214,14 +214,14 @@ public class TcpIpEndpointManager
                 return false;
             }
 
-            Address currentEndPoint = connection.getEndPoint();
+            Address currentEndPoint = connection.getRemoteAddress();
             if (currentEndPoint != null && !currentEndPoint.equals(remoteEndPoint)) {
                 throw new IllegalArgumentException(connection + " has already a different endpoint than: " + remoteEndPoint);
             }
             connection.setEndPoint(remoteEndPoint);
 
             if (!connection.isClient()) {
-                TcpIpConnectionErrorHandler connectionMonitor = getErrorHandler(remoteEndPoint, true);
+                ConnectionErrorHandler connectionMonitor = getErrorHandler(remoteEndPoint, true);
                 connection.setErrorHandler(connectionMonitor);
             }
             connectionsMap.put(remoteEndPoint, connection);
@@ -285,7 +285,7 @@ public class TcpIpEndpointManager
     }
 
     @Override
-    public boolean transmit(Packet packet, TcpIpConnection connection) {
+    public boolean transmit(Packet packet, DefaultConnection connection) {
         checkNotNull(packet, "Packet can't be null");
 
         if (connection == null) {
@@ -314,8 +314,8 @@ public class TcpIpEndpointManager
         }
     }
 
-    private TcpIpConnectionErrorHandler getErrorHandler(Address endpoint, boolean reset) {
-        TcpIpConnectionErrorHandler monitor = ConcurrencyUtil.getOrPutIfAbsent(monitors, endpoint, monitorConstructor);
+    private ConnectionErrorHandler getErrorHandler(Address endpoint, boolean reset) {
+        ConnectionErrorHandler monitor = ConcurrencyUtil.getOrPutIfAbsent(monitors, endpoint, monitorConstructor);
         if (reset) {
             monitor.reset();
         }
@@ -346,13 +346,13 @@ public class TcpIpEndpointManager
         }
     }
 
-    synchronized TcpIpConnection newConnection(Channel channel, Address endpoint) {
+    synchronized DefaultConnection newConnection(Channel channel, Address endpoint) {
         try {
             if (!networkingService.isLive()) {
                 throw new IllegalStateException("connection manager is not live!");
             }
 
-            TcpIpConnection connection = new TcpIpConnection(this, connectionLifecycleListener,
+            DefaultConnection connection = new DefaultConnection(this, connectionLifecycleListener,
                     connectionIdGen.incrementAndGet(), channel);
 
             connection.setEndPoint(endpoint);
@@ -426,22 +426,22 @@ public class TcpIpEndpointManager
                     .withDiscriminator(TCP_DISCRIMINATOR_ENDPOINT, endpointQualifier.toMetricsPrefixString()), this);
         }
 
-        for (TcpIpConnection connection : activeConnections) {
-            if (connection.getEndPoint() != null) {
+        for (DefaultConnection connection : activeConnections) {
+            if (connection.getRemoteAddress() != null) {
                 context.collect(rootDescriptor
                         .copy()
-                        .withDiscriminator(TCP_DISCRIMINATOR_ENDPOINT, connection.getEndPoint().toString()), connection);
+                        .withDiscriminator(TCP_DISCRIMINATOR_ENDPOINT, connection.getRemoteAddress().toString()), connection);
             }
         }
 
-        for (Map.Entry<Address, TcpIpConnection> entry : connectionsMap.entrySet()) {
+        for (Map.Entry<Address, DefaultConnection> entry : connectionsMap.entrySet()) {
             Address bindAddress = entry.getKey();
-            TcpIpConnection connection = entry.getValue();
-            if (connection.getEndPoint() != null) {
+            DefaultConnection connection = entry.getValue();
+            if (connection.getRemoteAddress() != null) {
                 context.collect(rootDescriptor
                         .copy()
                         .withDiscriminator(TCP_DISCRIMINATOR_BINDADDRESS, bindAddress.toString())
-                        .withTag(TCP_TAG_ENDPOINT, connection.getEndPoint().toString()), connection);
+                        .withTag(TCP_TAG_ENDPOINT, connection.getRemoteAddress().toString()), connection);
             }
         }
     }
@@ -469,10 +469,10 @@ public class TcpIpEndpointManager
     }
 
     public final class EndpointConnectionLifecycleListener
-            implements ConnectionLifecycleListener<TcpIpConnection> {
+            implements ConnectionLifecycleListener<DefaultConnection> {
 
         @Override
-        public void onConnectionClose(TcpIpConnection connection, Throwable t, boolean silent) {
+        public void onConnectionClose(DefaultConnection connection, Throwable t, boolean silent) {
             closedCount.inc();
 
             activeConnections.remove(connection);
@@ -482,7 +482,7 @@ public class TcpIpEndpointManager
                 networkStats.onConnectionClose(connection);
             }
 
-            Address endPoint = connection.getEndPoint();
+            Address endPoint = connection.getRemoteAddress();
             if (endPoint != null) {
                 connectionsInProgress.remove(endPoint);
                 connectionsMap.remove(endPoint, connection);
@@ -519,7 +519,7 @@ public class TcpIpEndpointManager
         void refresh() {
             MutableLong totalReceived = MutableLong.valueOf(bytesReceivedOnClosed.get());
             MutableLong totalSent = MutableLong.valueOf(bytesSentOnClosed.get());
-            for (TcpIpConnection conn : activeConnections) {
+            for (DefaultConnection conn : activeConnections) {
                 totalReceived.value += conn.getChannel().bytesRead();
                 totalSent.value += conn.getChannel().bytesWritten();
             }
@@ -528,7 +528,7 @@ public class TcpIpEndpointManager
             bytesSentLastCalc.updateAndGet((v) -> Math.max(v, totalSent.value));
         }
 
-        void onConnectionClose(TcpIpConnection connection) {
+        void onConnectionClose(DefaultConnection connection) {
             bytesReceivedOnClosed.inc(connection.getChannel().bytesRead());
             bytesSentOnClosed.inc(connection.getChannel().bytesWritten());
         }

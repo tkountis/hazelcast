@@ -29,7 +29,7 @@ import com.hazelcast.internal.util.UuidUtil;
 import com.hazelcast.map.impl.MapService;
 import com.hazelcast.internal.memory.DefaultMemoryStats;
 import com.hazelcast.cluster.Address;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.NetworkingService;
 import com.hazelcast.version.Version;
 import com.hazelcast.wan.impl.WanReplicationService;
@@ -137,7 +137,7 @@ public class TestNodeContext implements NodeContext {
 
     private static NetworkingService mockNs() {
         NetworkingService ns = mock(NetworkingService.class);
-        when(ns.getEndpointManager(ArgumentMatchers.<EndpointQualifier>any())).thenReturn(mock(EndpointManager.class));
+        when(ns.getEndpoint(ArgumentMatchers.<EndpointQualifier>any())).thenReturn(mock(Endpoint.class));
         return ns;
     }
 }

@@ -37,7 +37,7 @@ class ClusterConnectionMetricsProvider implements DynamicMetricsProvider {
         for (ClientConnection connection : clientConnectionManager.getActiveConnections()) {
             context.collect(descriptor
                             .withPrefix(CLUSTER_PREFIX_CONNECTION)
-                            .withDiscriminator(CLUSTER_DISCRIMINATOR_ENDPOINT, connection.getEndPoint().toString()),
+                            .withDiscriminator(CLUSTER_DISCRIMINATOR_ENDPOINT, connection.getRemoteAddress().toString()),
                     connection);
         }
     }

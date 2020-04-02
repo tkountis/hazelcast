@@ -17,7 +17,7 @@
 package com.hazelcast.internal.nio;
 
 /**
- * A listener for the {@link EndpointManager} to listen to connections
+ * A listener for the {@link Endpoint} to listen to connections
  * being added or removed.
  */
 public interface ConnectionListener {

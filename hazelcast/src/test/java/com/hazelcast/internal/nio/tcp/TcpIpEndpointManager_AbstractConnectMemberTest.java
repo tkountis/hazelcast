@@ -17,7 +17,7 @@
 package com.hazelcast.internal.nio.tcp;
 
 import com.hazelcast.internal.nio.Connection;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.ConnectionType;
 import com.hazelcast.test.AssertTask;
 import org.junit.Test;
@@ -44,8 +44,8 @@ public abstract class TcpIpEndpointManager_AbstractConnectMemberTest
 
         connect(networkingServiceA, addressB);
 
-        assertEquals(1, networkingServiceA.getEndpointManager(MEMBER).getConnections().size());
-        assertEquals(1, networkingServiceB.getEndpointManager(MEMBER).getConnections().size());
+        assertEquals(1, networkingServiceA.getEndpoint(MEMBER).getConnections().size());
+        assertEquals(1, networkingServiceB.getEndpoint(MEMBER).getConnections().size());
     }
 
     // ================== getOrConnect ======================================================
@@ -54,13 +54,13 @@ public abstract class TcpIpEndpointManager_AbstractConnectMemberTest
     public void getOrConnect_whenNotConnected_thenEventuallyConnectionAvailable() throws UnknownHostException {
         startAllNetworkingServices();
 
-        Connection c = networkingServiceA.getEndpointManager(MEMBER).getOrConnect(addressB);
+        Connection c = networkingServiceA.getEndpoint(MEMBER).getOrConnect(addressB);
         assertNull(c);
 
         connect(networkingServiceA, addressB);
 
-        assertEquals(1, networkingServiceA.getEndpointManager(MEMBER).getActiveConnections().size());
-        assertEquals(1, networkingServiceB.getEndpointManager(MEMBER).getActiveConnections().size());
+        assertEquals(1, networkingServiceA.getEndpoint(MEMBER).getActiveConnections().size());
+        assertEquals(1, networkingServiceB.getEndpoint(MEMBER).getActiveConnections().size());
     }
 
     @Test
@@ -68,7 +68,7 @@ public abstract class TcpIpEndpointManager_AbstractConnectMemberTest
         startAllNetworkingServices();
 
         Connection c1 = connect(networkingServiceA, addressB);
-        Connection c2 = networkingServiceA.getEndpointManager(MEMBER).getOrConnect(addressB);
+        Connection c2 = networkingServiceA.getEndpoint(MEMBER).getOrConnect(addressB);
 
         assertSame(c1, c2);
     }
@@ -79,8 +79,8 @@ public abstract class TcpIpEndpointManager_AbstractConnectMemberTest
     public void destroyConnection_whenActive() throws Exception {
         startAllNetworkingServices();
 
-        final TcpIpConnection connAB = connect(networkingServiceA, addressB);
-        final TcpIpConnection connBA = connect(networkingServiceB, addressA);
+        final DefaultConnection connAB = connect(networkingServiceA, addressB);
+        final DefaultConnection connBA = connect(networkingServiceB, addressA);
 
         connAB.close(null, null);
 
@@ -97,8 +97,8 @@ public abstract class TcpIpEndpointManager_AbstractConnectMemberTest
     public void destroyConnection_whenAlreadyDestroyed_thenCallIgnored() throws Exception {
         startAllNetworkingServices();
 
-        networkingServiceA.getEndpointManager(MEMBER).getOrConnect(addressB);
-        TcpIpConnection c = connect(networkingServiceA, addressB);
+        networkingServiceA.getEndpoint(MEMBER).getOrConnect(addressB);
+        DefaultConnection c = connect(networkingServiceA, addressB);
 
         // first destroy
         c.close(null, null);
@@ -109,11 +109,11 @@ public abstract class TcpIpEndpointManager_AbstractConnectMemberTest
         assertIsDestroyed(c);
     }
 
-    public void assertIsDestroyed(TcpIpConnection connection) {
-        EndpointManager networkingService = connection.getEndpointManager();
+    public void assertIsDestroyed(DefaultConnection connection) {
+        Endpoint networkingService = connection.getEndpoint();
 
         assertFalse(connection.isAlive());
-        assertNull(networkingService.getConnection(connection.getEndPoint()));
+        assertNull(networkingService.getConnection(connection.getRemoteAddress()));
     }
 
     // ================== connection ======================================================
@@ -122,17 +122,17 @@ public abstract class TcpIpEndpointManager_AbstractConnectMemberTest
     public void connect() throws UnknownHostException {
         startAllNetworkingServices();
 
-        TcpIpConnection connAB = connect(networkingServiceA, addressB);
+        DefaultConnection connAB = connect(networkingServiceA, addressB);
         assertTrue(connAB.isAlive());
         assertEquals(ConnectionType.MEMBER, connAB.getConnectionType());
-        assertEquals(1, networkingServiceA.getEndpointManager(MEMBER).getActiveConnections().size());
+        assertEquals(1, networkingServiceA.getEndpoint(MEMBER).getActiveConnections().size());
 
-        TcpIpConnection connBA = (TcpIpConnection) networkingServiceB.getEndpointManager(MEMBER).getConnection(addressA);
+        DefaultConnection connBA = (DefaultConnection) networkingServiceB.getEndpoint(MEMBER).getConnection(addressA);
         assertTrue(connBA.isAlive());
         assertEquals(ConnectionType.MEMBER, connBA.getConnectionType());
-        assertEquals(1, networkingServiceB.getEndpointManager(MEMBER).getActiveConnections().size());
+        assertEquals(1, networkingServiceB.getEndpoint(MEMBER).getActiveConnections().size());
 
-        assertEquals(networkingServiceA.getIoService().getThisAddress(), connBA.getEndPoint());
-        assertEquals(networkingServiceB.getIoService().getThisAddress(), connAB.getEndPoint());
+        assertEquals(networkingServiceA.getIoService().getThisAddress(), connBA.getRemoteAddress());
+        assertEquals(networkingServiceB.getIoService().getThisAddress(), connAB.getRemoteAddress());
     }
 }

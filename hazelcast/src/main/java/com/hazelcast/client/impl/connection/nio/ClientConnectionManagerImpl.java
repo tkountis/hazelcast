@@ -554,7 +554,7 @@ public class ClientConnectionManagerImpl implements ClientConnectionManager {
 
     private ClientConnection getConnection(@Nonnull Address address) {
         for (ClientConnection connection : activeConnections.values()) {
-            if (connection.getEndPoint().equals(address)) {
+            if (connection.getRemoteAddress().equals(address)) {
                 return connection;
             }
         }
@@ -690,7 +690,7 @@ public class ClientConnectionManagerImpl implements ClientConnectionManager {
     }
 
     void onConnectionClose(ClientConnection connection) {
-        Address endpoint = connection.getEndPoint();
+        Address endpoint = connection.getRemoteAddress();
         UUID memberUuid = connection.getRemoteUuid();
 
         if (endpoint == null) {

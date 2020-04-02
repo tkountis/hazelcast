@@ -25,12 +25,12 @@ import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.internal.util.concurrent.ThreadFactoryImpl;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.cluster.Address;
-import com.hazelcast.internal.nio.AggregateEndpointManager;
+import com.hazelcast.internal.nio.AggregateEndpoint;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.nio.ConnectionLifecycleListener;
 import com.hazelcast.internal.nio.ConnectionListener;
-import com.hazelcast.internal.nio.DefaultAggregateEndpointManager;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.DefaultAggregateEndpoint;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.IOService;
 import com.hazelcast.internal.nio.NetworkingService;
 import com.hazelcast.internal.nio.Packet;
@@ -70,15 +70,15 @@ class MockNetworkingService
 
     private volatile boolean live;
 
-    private final EndpointManager mockEndpointMgr;
-    private final AggregateEndpointManager mockAggrEndpointManager;
+    private final Endpoint mockEndpointMgr;
+    private final AggregateEndpoint mockAggrEndpointManager;
 
     MockNetworkingService(IOService ioService, Node node, TestNodeRegistry testNodeRegistry) {
         this.ioService = ioService;
         this.nodeRegistry = testNodeRegistry;
         this.node = node;
         this.mockEndpointMgr = new MockEndpointManager(this);
-        this.mockAggrEndpointManager = new DefaultAggregateEndpointManager(
+        this.mockAggrEndpointManager = new DefaultAggregateEndpoint(
                 new ConcurrentHashMap(singletonMap(MEMBER, mockEndpointMgr)));
         this.scheduler = new ScheduledThreadPoolExecutor(4,
                 new ThreadFactoryImpl(createThreadPoolName(ioService.getHazelcastName(), "MockConnectionManager")));
@@ -88,7 +88,7 @@ class MockNetworkingService
 
 
     static class MockEndpointManager
-            implements EndpointManager<MockConnection> {
+            implements Endpoint<MockConnection> {
 
         private final MockNetworkingService ns;
         private final ConnectionLifecycleListener lifecycleListener = new MockEndpointManager.MockConnLifecycleListener();
@@ -293,7 +293,7 @@ class MockNetworkingService
 
             @Override
             public void onConnectionClose(MockConnection connection, Throwable t, boolean silent) {
-                final Address endPoint = connection.getEndPoint();
+                final Address endPoint = connection.getRemoteAddress();
                 if (!ns.mapConnections.remove(endPoint, connection)) {
                     return;
                 }
@@ -302,7 +302,7 @@ class MockNetworkingService
                 // all mock implementations of networking service ignore the provided endpoint qualifier
                 // so we pass in null. Once they are changed to use the parameter, we should be notified
                 // and this parameter can be changed
-                Connection remoteConnection = remoteNetworkingService.getEndpointManager(null)
+                Connection remoteConnection = remoteNetworkingService.getEndpoint(null)
                                                                      .getConnection(connection.localEndpoint);
                 if (remoteConnection != null) {
                     remoteConnection.close("Connection closed by the other side", null);
@@ -357,12 +357,12 @@ class MockNetworkingService
     }
 
     @Override
-    public AggregateEndpointManager getAggregateEndpointManager() {
+    public AggregateEndpoint getAggregateEndpoint() {
         return mockAggrEndpointManager;
     }
 
     @Override
-    public EndpointManager getEndpointManager(EndpointQualifier qualifier) {
+    public Endpoint getEndpoint(EndpointQualifier qualifier) {
         return mockEndpointMgr;
     }
 

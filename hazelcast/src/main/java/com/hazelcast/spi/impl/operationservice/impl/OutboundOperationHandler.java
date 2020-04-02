@@ -48,7 +48,7 @@ public class OutboundOperationHandler {
             throw new IllegalArgumentException("Target is this node! -> " + target + ", op: " + op);
         }
 
-        Connection connection = node.getNetworkingService().getEndpointManager(MEMBER).getOrConnect(target);
+        Connection connection = node.getNetworkingService().getEndpoint(MEMBER).getOrConnect(target);
         return send(op, connection);
     }
 

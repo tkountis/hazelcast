@@ -16,7 +16,7 @@
 
 package com.hazelcast.client;
 
-import com.hazelcast.cluster.Endpoint;
+import com.hazelcast.cluster.Peer;
 
 import java.net.InetSocketAddress;
 import java.util.Set;
@@ -29,7 +29,7 @@ import java.util.UUID;
  * @see ClientService
  * @see ClientListener
  */
-public interface Client extends Endpoint {
+public interface Client extends Peer {
 
     /**
      * Returns a unique UUID for this client.

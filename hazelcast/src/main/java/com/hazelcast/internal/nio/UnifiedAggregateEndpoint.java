@@ -18,37 +18,37 @@ package com.hazelcast.internal.nio;
 
 import com.hazelcast.instance.EndpointQualifier;
 import com.hazelcast.internal.networking.NetworkStats;
-import com.hazelcast.internal.nio.tcp.TcpIpConnection;
-import com.hazelcast.internal.nio.tcp.TcpIpEndpointManager;
+import com.hazelcast.internal.nio.tcp.DefaultConnection;
+import com.hazelcast.internal.nio.tcp.DefaultEndpoint;
 
 import java.util.Collection;
 import java.util.Map;
 
 import static java.util.Collections.emptyMap;
 
-public class UnifiedAggregateEndpointManager
-        implements AggregateEndpointManager {
+public class UnifiedAggregateEndpoint
+        implements AggregateEndpoint {
 
-    private final TcpIpEndpointManager unified;
-    private final Map<EndpointQualifier, EndpointManager<TcpIpConnection>> views;
+    private final DefaultEndpoint unified;
+    private final Map<EndpointQualifier, Endpoint<DefaultConnection>> views;
 
-    public UnifiedAggregateEndpointManager(TcpIpEndpointManager unified,
-                                           Map<EndpointQualifier, EndpointManager<TcpIpConnection>> views) {
+    public UnifiedAggregateEndpoint(DefaultEndpoint unified,
+                                    Map<EndpointQualifier, Endpoint<DefaultConnection>> views) {
         this.unified = unified;
         this.views = views;
     }
 
     @Override
-    public Collection<TcpIpConnection> getActiveConnections() {
+    public Collection<DefaultConnection> getActiveConnections() {
         return unified.getActiveConnections();
     }
 
     @Override
-    public Collection<TcpIpConnection> getConnections() {
+    public Collection<DefaultConnection> getConnections() {
         return unified.getConnections();
     }
 
-    public EndpointManager<TcpIpConnection> getEndpointManager(EndpointQualifier qualifier) {
+    public Endpoint<DefaultConnection> getEndpointManager(EndpointQualifier qualifier) {
         return views.get(qualifier);
     }
 

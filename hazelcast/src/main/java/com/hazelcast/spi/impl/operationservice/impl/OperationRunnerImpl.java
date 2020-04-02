@@ -413,7 +413,7 @@ class OperationRunnerImpl extends OperationRunner implements StaticMetricsProvid
         }
 
         Connection connection = packet.getConn();
-        Address caller = connection.getEndPoint();
+        Address caller = connection.getRemoteAddress();
         try {
             Object object = nodeEngine.toObject(packet);
             Operation op = (Operation) object;
@@ -434,7 +434,7 @@ class OperationRunnerImpl extends OperationRunner implements StaticMetricsProvid
         } catch (Throwable throwable) {
             // If exception happens we need to extract the callId from the bytes directly!
             long callId = extractOperationCallId(packet);
-            outboundResponseHandler.send(connection.getEndpointManager(), caller,
+            outboundResponseHandler.send(connection.getEndpoint(), caller,
                     new ErrorResponse(throwable, callId, packet.isUrgent()));
             logOperationDeserializationException(throwable, callId);
             throw ExceptionUtil.rethrow(throwable);

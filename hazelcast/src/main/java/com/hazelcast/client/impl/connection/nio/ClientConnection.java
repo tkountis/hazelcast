@@ -29,7 +29,7 @@ import com.hazelcast.internal.networking.Channel;
 import com.hazelcast.internal.networking.OutboundFrame;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.nio.ConnectionType;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.logging.ILogger;
 
 import java.io.EOFException;
@@ -121,7 +121,7 @@ public class ClientConnection implements Connection {
     }
 
     @Override
-    public Address getEndPoint() {
+    public Address getRemoteAddress() {
         return remoteEndpoint;
     }
 
@@ -179,7 +179,7 @@ public class ClientConnection implements Connection {
     }
 
     @Override
-    public EndpointManager getEndpointManager() {
+    public Endpoint getEndpoint() {
         throw new UnsupportedOperationException();
     }
 

@@ -19,7 +19,7 @@ package com.hazelcast.spi.impl.operationservice.impl;
 import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.cluster.Address;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
@@ -80,7 +80,7 @@ public final class OutboundResponseHandler implements OperationResponseHandler {
     @Override
     public void sendResponse(Operation operation, Object obj) {
         Address target = operation.getCallerAddress();
-        EndpointManager endpointManager = operation.getConnection().getEndpointManager();
+        Endpoint endpointManager = operation.getConnection().getEndpoint();
         boolean send;
         if (obj == null) {
             send = sendNormalResponse(endpointManager, target, operation.getCallId(), 0, operation.isUrgent(), null);
@@ -104,7 +104,7 @@ public final class OutboundResponseHandler implements OperationResponseHandler {
         }
     }
 
-    public boolean send(EndpointManager endpointManager, Address target, Response response) {
+    public boolean send(Endpoint endpointManager, Address target, Response response) {
         checkNotNull(target, "Target is required!");
 
         if (thisAddress.equals(target)) {
@@ -118,7 +118,7 @@ public final class OutboundResponseHandler implements OperationResponseHandler {
         return transmit(target, packet, endpointManager);
     }
 
-    private boolean sendNormalResponse(EndpointManager endpointManager, Address target, long callId,
+    private boolean sendNormalResponse(Endpoint endpointManager, Address target, long callId,
                                        int backupAcks, boolean urgent, Object value) {
         checkTarget(target);
 
@@ -164,7 +164,7 @@ public final class OutboundResponseHandler implements OperationResponseHandler {
         return newResponsePacket(bytes, urgent);
     }
 
-    public void sendBackupAck(EndpointManager endpointManager, Address target, long callId, boolean urgent) {
+    public void sendBackupAck(Endpoint endpointManager, Address target, long callId, boolean urgent) {
         checkTarget(target);
 
         Packet packet = toBackupAckPacket(callId, urgent);
@@ -208,7 +208,7 @@ public final class OutboundResponseHandler implements OperationResponseHandler {
         return packet;
     }
 
-    private boolean transmit(Address target, Packet packet, EndpointManager endpointManager) {
+    private boolean transmit(Address target, Packet packet, Endpoint endpointManager) {
         return endpointManager.transmit(packet, target);
     }
 

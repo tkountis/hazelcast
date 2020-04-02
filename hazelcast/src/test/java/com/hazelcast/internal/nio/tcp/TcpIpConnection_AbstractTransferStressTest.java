@@ -92,7 +92,7 @@ public abstract class TcpIpConnection_AbstractTransferStressTest extends TcpIpCo
     }
 
     private void testPackets(long verifyTimeoutInMillis) {
-        TcpIpConnection c = connect(networkingServiceA, addressB);
+        DefaultConnection c = connect(networkingServiceA, addressB);
 
         WriteThread thread1 = new WriteThread(1, c);
         WriteThread thread2 = new WriteThread(2, c);
@@ -115,7 +115,7 @@ public abstract class TcpIpConnection_AbstractTransferStressTest extends TcpIpCo
         logger.info("expected normal packets: " + expectedNormalPackets);
         logger.info("expected priority packets: " + expectedUrgentPackets);
 
-        final TcpIpConnection connection = connect(networkingServiceB, addressA);
+        final DefaultConnection connection = connect(networkingServiceB, addressA);
         long start = System.currentTimeMillis();
         assertTrueEventually(new AssertTask() {
             @Override
@@ -135,7 +135,7 @@ public abstract class TcpIpConnection_AbstractTransferStressTest extends TcpIpCo
                 + (System.currentTimeMillis() - start) + " milliseconds");
     }
 
-    private int totalFramesPending(TcpIpConnection connection) {
+    private int totalFramesPending(DefaultConnection connection) {
         Channel channel = connection.getChannel();
         if (channel instanceof NioChannel) {
             return ((NioChannel) channel).outboundPipeline().totalFramesPending();
@@ -144,7 +144,7 @@ public abstract class TcpIpConnection_AbstractTransferStressTest extends TcpIpCo
         }
     }
 
-    private long framesRead(TcpIpConnection connection, boolean priority) {
+    private long framesRead(DefaultConnection connection, boolean priority) {
         Channel channel = connection.getChannel();
         if (channel instanceof NioChannel) {
             NioInboundPipeline reader = ((NioChannel) channel).inboundPipeline();
@@ -195,11 +195,11 @@ public abstract class TcpIpConnection_AbstractTransferStressTest extends TcpIpCo
     public class WriteThread extends TestThread {
 
         private final Random random = new Random();
-        private final TcpIpConnection c;
+        private final DefaultConnection c;
         private long normalPackets;
         private long urgentPackets;
 
-        public WriteThread(int id, TcpIpConnection c) {
+        public WriteThread(int id, DefaultConnection c) {
             super("WriteThread-" + id);
             this.c = c;
         }

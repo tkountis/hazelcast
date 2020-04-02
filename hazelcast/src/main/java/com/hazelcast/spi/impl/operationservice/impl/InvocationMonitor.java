@@ -55,7 +55,6 @@ import static com.hazelcast.internal.metrics.MetricDescriptorConstants.OPERATION
 import static com.hazelcast.internal.metrics.MetricDescriptorConstants.OPERATION_METRIC_INVOCATION_MONITOR_DELAYED_EXECUTION_COUNT;
 import static com.hazelcast.internal.metrics.MetricDescriptorConstants.OPERATION_METRIC_INVOCATION_MONITOR_HEARTBEAT_BROADCAST_PERIOD_MILLIS;
 import static com.hazelcast.internal.metrics.MetricDescriptorConstants.OPERATION_METRIC_INVOCATION_MONITOR_HEARTBEAT_PACKETS_RECEIVED;
-import static com.hazelcast.internal.metrics.MetricDescriptorConstants.OPERATION_METRIC_INVOCATION_MONITOR_HEARTBEAT_PACKETS_SENT;
 import static com.hazelcast.internal.metrics.MetricDescriptorConstants.OPERATION_METRIC_INVOCATION_MONITOR_INVOCATION_SCAN_PERIOD_MILLIS;
 import static com.hazelcast.internal.metrics.MetricDescriptorConstants.OPERATION_METRIC_INVOCATION_MONITOR_INVOCATION_TIMEOUT_MILLIS;
 import static com.hazelcast.internal.metrics.MetricDescriptorConstants.OPERATION_METRIC_INVOCATION_MONITOR_NORMAL_TIMEOUTS;
@@ -101,7 +100,7 @@ public class InvocationMonitor implements Consumer<Packet>, StaticMetricsProvide
     private final SwCounter normalTimeoutsCount = newSwCounter();
     @Probe(name = OPERATION_METRIC_INVOCATION_MONITOR_HEARTBEAT_PACKETS_RECEIVED)
     private final SwCounter heartbeatPacketsReceived = newSwCounter();
-    @Probe(name = OPERATION_METRIC_INVOCATION_MONITOR_HEARTBEAT_PACKETS_SENT)
+    @Probe(name = OPERATION_METRIC_INVOCATION_MONITOR_HEARTBEAT_PlACKETS_SENT)
     private final SwCounter heartbeatPacketsSent = newSwCounter();
     @Probe(name = OPERATION_METRIC_INVOCATION_MONITOR_DELAYED_EXECUTION_COUNT)
     private final SwCounter delayedExecutionCount = newSwCounter();
@@ -447,7 +446,7 @@ public class InvocationMonitor implements Consumer<Packet>, StaticMetricsProvide
 
         ProcessOperationControlTask(Packet payload) {
             this.payload = payload;
-            this.sender = payload.getConn().getEndPoint();
+            this.sender = payload.getConn().getRemoteAddress();
         }
 
         @Override
@@ -538,7 +537,7 @@ public class InvocationMonitor implements Consumer<Packet>, StaticMetricsProvide
                 Packet packet = new Packet(serializationService.toBytes(opControl))
                         .setPacketType(Packet.Type.OPERATION)
                         .raiseFlags(FLAG_OP_CONTROL | FLAG_URGENT);
-                nodeEngine.getNode().getNetworkingService().getEndpointManager(MEMBER).transmit(packet, address);
+                nodeEngine.getNode().getNetworkingService().getEndpoint(MEMBER).transmit(packet, address);
             }
         }
     }

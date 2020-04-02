@@ -148,7 +148,7 @@ public abstract class AbstractClientInvocationService implements ClientInvocatio
 
         ClientMessage clientMessage = invocation.getClientMessage();
         if (!writeToConnection(connection, clientMessage)) {
-            throw new IOException("Packet not sent to " + connection.getEndPoint() + " " + clientMessage);
+            throw new IOException("Packet not sent to " + connection.getRemoteAddress() + " " + clientMessage);
         }
 
         invocation.setSendConnection(connection);

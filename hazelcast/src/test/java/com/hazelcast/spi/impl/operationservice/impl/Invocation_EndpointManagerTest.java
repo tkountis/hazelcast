@@ -21,7 +21,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.internal.networking.NetworkStats;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.nio.ConnectionListener;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.impl.MapService;
@@ -75,7 +75,7 @@ public class Invocation_EndpointManagerTest
         builder.invoke().join();
     }
 
-    class NoopEndpointManager implements EndpointManager {
+    class NoopEndpointManager implements Endpoint {
 
         @Override
         public Collection getConnections() {

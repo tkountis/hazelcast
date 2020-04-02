@@ -37,7 +37,7 @@ public class TcpIpEndpointManager_ConnectionListenerTest
 
     @Test(expected = NullPointerException.class)
     public void addConnectionListener_whenNull() {
-        networkingServiceA.getEndpointManager(MEMBER).addConnectionListener(null);
+        networkingServiceA.getEndpoint(MEMBER).addConnectionListener(null);
     }
 
     @Test
@@ -45,7 +45,7 @@ public class TcpIpEndpointManager_ConnectionListenerTest
         startAllNetworkingServices();
 
         final ConnectionListener listener = mock(ConnectionListener.class);
-        networkingServiceA.getEndpointManager(MEMBER).addConnectionListener(listener);
+        networkingServiceA.getEndpoint(MEMBER).addConnectionListener(listener);
 
         final Connection c = connect(networkingServiceA, addressB);
 
@@ -63,7 +63,7 @@ public class TcpIpEndpointManager_ConnectionListenerTest
 
 
         final ConnectionListener listener = mock(ConnectionListener.class);
-        networkingServiceA.getEndpointManager(MEMBER).addConnectionListener(listener);
+        networkingServiceA.getEndpoint(MEMBER).addConnectionListener(listener);
 
         final Connection c = connect(networkingServiceA, addressB);
         c.close(null, null);
@@ -81,12 +81,12 @@ public class TcpIpEndpointManager_ConnectionListenerTest
         startAllNetworkingServices();
 
         ConnectionListener listener = mock(ConnectionListener.class);
-        networkingServiceA.getEndpointManager(MEMBER).addConnectionListener(listener);
+        networkingServiceA.getEndpoint(MEMBER).addConnectionListener(listener);
 
         networkingServiceA.shutdown();
 
-        final MemberViewUnifiedEndpointManager endpointManager = (MemberViewUnifiedEndpointManager) networkingServiceA
-                .getEndpointManager(EndpointQualifier.MEMBER);
+        final MemberViewUnifiedEndpoint endpointManager = (MemberViewUnifiedEndpoint) networkingServiceA
+                .getEndpoint(EndpointQualifier.MEMBER);
 
         assertEquals(0, endpointManager.getConnectionListenersCount());
     }

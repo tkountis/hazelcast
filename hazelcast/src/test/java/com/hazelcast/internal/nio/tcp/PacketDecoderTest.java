@@ -51,7 +51,7 @@ public class PacketDecoderTest extends HazelcastTestSupport {
 
     @Before
     public void setup() throws Exception {
-        TcpIpConnection connection = mock(TcpIpConnection.class);
+        DefaultConnection connection = mock(DefaultConnection.class);
 
         dispatcher = new ConsumerStub();
         decoder = new PacketDecoder(connection, dispatcher);

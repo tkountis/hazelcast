@@ -31,7 +31,7 @@ import com.hazelcast.instance.impl.Node;
 import com.hazelcast.instance.impl.NodeExtension;
 import com.hazelcast.instance.impl.TestUtil;
 import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.internal.partition.IPartition;
 import com.hazelcast.internal.partition.InternalPartitionService;
@@ -280,7 +280,7 @@ public abstract class HazelcastTestSupport {
 
     public static Packet toPacket(HazelcastInstance local, HazelcastInstance remote, Operation operation) {
         InternalSerializationService serializationService = Accessors.getSerializationService(local);
-        EndpointManager endpointManager = Accessors.getEndpointManager(local);
+        Endpoint endpointManager = Accessors.getEndpointManager(local);
 
         return new Packet(serializationService.toBytes(operation), operation.getPartitionId())
                 .setPacketType(Packet.Type.OPERATION)

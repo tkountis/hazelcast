@@ -36,7 +36,7 @@ import com.hazelcast.internal.cluster.ClusterService;
 import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
 import com.hazelcast.internal.networking.InboundHandler;
 import com.hazelcast.internal.networking.OutboundHandler;
-import com.hazelcast.internal.nio.tcp.TcpIpConnection;
+import com.hazelcast.internal.nio.tcp.DefaultConnection;
 import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.internal.util.AddressUtil;
 import com.hazelcast.logging.LoggingService;
@@ -310,12 +310,12 @@ public class NodeIOService implements IOService {
     }
 
     @Override
-    public InboundHandler[] createInboundHandlers(EndpointQualifier qualifier, TcpIpConnection connection) {
+    public InboundHandler[] createInboundHandlers(EndpointQualifier qualifier, DefaultConnection connection) {
         return node.getNodeExtension().createInboundHandlers(qualifier, connection, this);
     }
 
     @Override
-    public OutboundHandler[] createOutboundHandlers(EndpointQualifier qualifier, TcpIpConnection connection) {
+    public OutboundHandler[] createOutboundHandlers(EndpointQualifier qualifier, DefaultConnection connection) {
         return node.getNodeExtension().createOutboundHandlers(qualifier, connection, this);
     }
 

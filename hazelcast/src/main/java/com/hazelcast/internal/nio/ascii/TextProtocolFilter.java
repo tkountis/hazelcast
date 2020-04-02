@@ -16,12 +16,12 @@
 
 package com.hazelcast.internal.nio.ascii;
 
-import com.hazelcast.internal.nio.tcp.TcpIpConnection;
+import com.hazelcast.internal.nio.tcp.DefaultConnection;
 
 /**
  * This interface is a text protocols policy enforcement point. It checks incoming command lines and validates if the command
  * can be processed. If the command is unknown or not allowed the connection is closed.
  */
 interface TextProtocolFilter {
-    void filterConnection(String commandLine, TcpIpConnection connection);
+    void filterConnection(String commandLine, DefaultConnection connection);
 }

@@ -45,18 +45,19 @@ import static com.hazelcast.internal.nio.ConnectionType.NONE;
 /**
  * The Tcp/Ip implementation of the {@link Connection}.
  * <p>
- * A {@link TcpIpConnection} is not responsible for reading or writing data to the socket; that is task of
+ * A {@link DefaultConnection} is not responsible for reading or writing data to the socket; that is task of
  * the {@link Channel}.
  *
  * @see Networking
  */
 @SuppressWarnings("checkstyle:methodcount")
-public class TcpIpConnection implements Connection {
+public class DefaultConnection
+        implements Connection {
 
     private final Channel channel;
     private final ConcurrentMap attributeMap;
 
-    private final TcpIpEndpointManager endpointManager;
+    private final DefaultEndpoint endpointManager;
 
     private final AtomicBoolean alive = new AtomicBoolean(true);
 
@@ -71,7 +72,7 @@ public class TcpIpConnection implements Connection {
 
     private Address endPoint;
 
-    private TcpIpConnectionErrorHandler errorHandler;
+    private ConnectionErrorHandler errorHandler;
 
     private volatile String connectionType = NONE;
 
@@ -82,18 +83,18 @@ public class TcpIpConnection implements Connection {
     private volatile String closeReason;
 
 
-    public TcpIpConnection(TcpIpEndpointManager endpointManager,
-                           ConnectionLifecycleListener lifecycleListener,
-                           int connectionId,
-                           Channel channel) {
+    public DefaultConnection(DefaultEndpoint endpointManager,
+                             ConnectionLifecycleListener lifecycleListener,
+                             int connectionId,
+                             Channel channel) {
         this.connectionId = connectionId;
         this.endpointManager = endpointManager;
         this.lifecycleListener = lifecycleListener;
         this.ioService = endpointManager.getNetworkingService().getIoService();
-        this.logger = ioService.getLoggingService().getLogger(TcpIpConnection.class);
+        this.logger = ioService.getLoggingService().getLogger(DefaultConnection.class);
         this.channel = channel;
         this.attributeMap = channel.attributeMap();
-        attributeMap.put(TcpIpConnection.class, this);
+        attributeMap.put(DefaultConnection.class, this);
     }
 
     public Channel getChannel() {
@@ -124,7 +125,7 @@ public class TcpIpConnection implements Connection {
         }
     }
 
-    public TcpIpEndpointManager getEndpointManager() {
+    public DefaultEndpoint getEndpoint() {
         return endpointManager;
     }
 
@@ -159,7 +160,7 @@ public class TcpIpConnection implements Connection {
     }
 
     @Override
-    public Address getEndPoint() {
+    public Address getRemoteAddress() {
         return endPoint;
     }
 
@@ -167,7 +168,7 @@ public class TcpIpConnection implements Connection {
         this.endPoint = endPoint;
     }
 
-    public void setErrorHandler(TcpIpConnectionErrorHandler errorHandler) {
+    public void setErrorHandler(ConnectionErrorHandler errorHandler) {
         this.errorHandler = errorHandler;
     }
 
@@ -197,10 +198,10 @@ public class TcpIpConnection implements Connection {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof TcpIpConnection)) {
+        if (!(o instanceof DefaultConnection)) {
             return false;
         }
-        TcpIpConnection that = (TcpIpConnection) o;
+        DefaultConnection that = (DefaultConnection) o;
         return connectionId == that.getConnectionId();
     }
 

@@ -161,7 +161,7 @@ public class ClientICMPManager implements ConnectionListener {
 
         public void run() {
             try {
-                Address address = connection.getEndPoint();
+                Address address = connection.getRemoteAddress();
                 logger.fine(format("will ping %s", address));
                 if (doPing(address, Level.FINE)) {
                     icmpFailureDetector.heartbeat(connection);

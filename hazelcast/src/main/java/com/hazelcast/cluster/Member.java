@@ -30,7 +30,7 @@ import java.util.UUID;
  * @see Cluster
  * @see MembershipListener
  */
-public interface Member extends DataSerializable, Endpoint {
+public interface Member extends DataSerializable, Peer {
 
     /**
      * Returns true if this member is the local member.

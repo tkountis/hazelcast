@@ -19,28 +19,31 @@ package com.hazelcast.internal.nio.tcp;
 import com.hazelcast.internal.networking.NetworkStats;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.nio.ConnectionListener;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.Packet;
 
 import java.util.Collection;
+import java.util.Set;
 
-public class MemberViewUnifiedEndpointManager
-        implements EndpointManager<TcpIpConnection> {
+public class TextViewUnifiedEndpoint
+        implements Endpoint<DefaultConnection> {
 
-    private final TcpIpUnifiedEndpointManager unifiedEndpointManager;
+    private final UnifiedEndpoint unifiedEndpointManager;
+    private final boolean rest;
 
-    MemberViewUnifiedEndpointManager(TcpIpUnifiedEndpointManager unifiedEndpointManager) {
+    TextViewUnifiedEndpoint(UnifiedEndpoint unifiedEndpointManager, boolean rest) {
         this.unifiedEndpointManager = unifiedEndpointManager;
+        this.rest = rest;
     }
 
     @Override
-    public Collection<TcpIpConnection> getActiveConnections() {
-        return unifiedEndpointManager.getActiveConnections();
+    public Set<DefaultConnection> getActiveConnections() {
+        return rest ? unifiedEndpointManager.getRestConnections() : unifiedEndpointManager.getMemachedConnections();
     }
 
     @Override
-    public Collection<TcpIpConnection> getConnections() {
-        return unifiedEndpointManager.getConnections();
+    public Collection<DefaultConnection> getConnections() {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -54,27 +57,27 @@ public class MemberViewUnifiedEndpointManager
     }
 
     @Override
-    public TcpIpConnection getConnection(Address address) {
+    public boolean registerConnection(Address remoteEndPoint, DefaultConnection connection) {
+        return unifiedEndpointManager.registerConnection(remoteEndPoint, connection);
+    }
+
+    @Override
+    public DefaultConnection getConnection(Address address) {
         return unifiedEndpointManager.getConnection(address);
     }
 
     @Override
-    public TcpIpConnection getOrConnect(Address address) {
+    public DefaultConnection getOrConnect(Address address) {
         return unifiedEndpointManager.getOrConnect(address);
     }
 
     @Override
-    public TcpIpConnection getOrConnect(Address address, boolean silent) {
+    public DefaultConnection getOrConnect(Address address, boolean silent) {
         return unifiedEndpointManager.getOrConnect(address, silent);
     }
 
     @Override
-    public boolean registerConnection(Address address, TcpIpConnection connection) {
-        return unifiedEndpointManager.registerConnection(address, connection);
-    }
-
-    @Override
-    public boolean transmit(Packet packet, TcpIpConnection connection) {
+    public boolean transmit(Packet packet, DefaultConnection connection) {
         return unifiedEndpointManager.transmit(packet, connection);
     }
 
@@ -91,15 +94,5 @@ public class MemberViewUnifiedEndpointManager
     @Override
     public String toString() {
         return unifiedEndpointManager.toString();
-    }
-
-    // test support
-    int getAcceptedChannelsSize() {
-        return unifiedEndpointManager.getAcceptedChannelsSize();
-    }
-
-    // test support
-    int getConnectionListenersCount() {
-        return unifiedEndpointManager.getConnectionListenersCount();
     }
 }

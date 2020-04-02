@@ -23,7 +23,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.nio.Connection;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.nio.serialization.Portable;
 import com.hazelcast.nio.serialization.PortableReader;
@@ -71,7 +71,7 @@ public class OutboundResponseHandlerTest {
     private InternalSerializationService serializationService;
     private ILogger logger = Logger.getLogger(OutboundResponseHandlerTest.class);
     private Address thatAddress;
-    private EndpointManager endpointManager;
+    private Endpoint endpointManager;
     private Connection connection;
 
     @Parameters(name = "{0}")
@@ -87,9 +87,9 @@ public class OutboundResponseHandlerTest {
         Address thisAddress = new Address("127.0.0.1", 5701);
         thatAddress = new Address("127.0.0.1", 5702);
         serializationService = new DefaultSerializationServiceBuilder().setByteOrder(byteOrder).build();
-        endpointManager = mock(EndpointManager.class);
+        endpointManager = mock(Endpoint.class);
         connection = mock(Connection.class);
-        when(connection.getEndpointManager()).thenReturn(endpointManager);
+        when(connection.getEndpoint()).thenReturn(endpointManager);
         handler = new OutboundResponseHandler(thisAddress, serializationService, logger);
     }
 

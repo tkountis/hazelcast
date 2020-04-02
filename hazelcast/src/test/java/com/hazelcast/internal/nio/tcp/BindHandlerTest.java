@@ -126,7 +126,7 @@ public class BindHandlerTest {
 
     // mocks
     private Channel channel;
-    private TcpIpEndpointManager endpointManager;
+    private DefaultEndpoint endpointManager;
 
     @Parameters
     public static List<Object> parameters() {
@@ -159,7 +159,7 @@ public class BindHandlerTest {
         HazelcastInstance hz = factory.newHazelcastInstance(createConfig());
         serializationService = getSerializationService(hz);
         Node node = getNode(hz);
-        endpointManager = TcpIpEndpointManager.class.cast(
+        endpointManager = DefaultEndpoint.class.cast(
                 node.getEndpointManager(EndpointQualifier.resolve(protocolType, "wan")));
         bindHandler = getFieldValueReflectively(endpointManager, "bindHandler");
 
@@ -188,7 +188,7 @@ public class BindHandlerTest {
     private void assertExpectedAddressesRegistered()
             throws IllegalAccessException {
         // inspect connections in TcpIpEndpointManager
-        ConcurrentHashMap<Address, TcpIpConnection> connectionsMap = getFieldValueReflectively(endpointManager, "connectionsMap");
+        ConcurrentHashMap<Address, DefaultConnection> connectionsMap = getFieldValueReflectively(endpointManager, "connectionsMap");
         try {
             for (Address address : expectedAddresses) {
                 assertTrue(connectionsMap.containsKey(address));
@@ -205,7 +205,7 @@ public class BindHandlerTest {
                 new BindMessage((byte) 1, localAddresses, new Address(CLIENT_SOCKET_ADDRESS), reply, uuid);
 
         Packet packet = new Packet(serializationService.toBytes(bindMessage));
-        TcpIpConnection connection = new TcpIpConnection(endpointManager, null, 1, channel);
+        DefaultConnection connection = new DefaultConnection(endpointManager, null, 1, channel);
         if (connectionType != null) {
             connection.setConnectionType(connectionType);
         }

@@ -18,13 +18,16 @@ package com.hazelcast.internal.nio;
 
 import com.hazelcast.instance.EndpointQualifier;
 import com.hazelcast.internal.networking.Networking;
+import com.hazelcast.internal.nio.tcp.ClientViewUnifiedEndpoint;
+import com.hazelcast.internal.nio.tcp.MemberViewUnifiedEndpoint;
+import com.hazelcast.internal.nio.tcp.TextViewUnifiedEndpoint;
 
 import java.util.concurrent.TimeUnit;
 
 /**
  * Networking service, it initializes the endpoints, the acceptor and the reactive networking stack
- * Given an {@link EndpointQualifier} an {@link EndpointManager} can be retrieved
- * by {@link #getEndpointManager(EndpointQualifier)} to create or get connections on that end.
+ * Given an {@link EndpointQualifier} an {@link Endpoint} can be retrieved
+ * by {@link #getEndpoint(EndpointQualifier)} to create or get connections on that end.
  */
 public interface NetworkingService<T extends Connection> {
 
@@ -43,23 +46,23 @@ public interface NetworkingService<T extends Connection> {
      * Return an aggregate endpoint which acts as a view of all endpoints merged together for reporting purposes
      * eg. Read total-connections
      */
-    AggregateEndpointManager getAggregateEndpointManager();
+    AggregateEndpoint getAggregateEndpoint();
 
     /**
-     * Returns the relevant {@link EndpointManager} given an {@link EndpointQualifier}
+     * Returns the relevant {@link Endpoint} given an {@link EndpointQualifier}
      * On single-endpoint setups (legacy mode), then a View relevant to the requested Endpoint is returned which purely acts
      * as a facade to hide the API differences and maintain common signatures.
      * eg.
      * {@link com.hazelcast.instance.ProtocolType#MEMBER} -&gt;
-     * {@link com.hazelcast.internal.nio.tcp.MemberViewUnifiedEndpointManager}
+     * {@link MemberViewUnifiedEndpoint}
      * {@link com.hazelcast.instance.ProtocolType#CLIENT} -&gt;
-     * {@link com.hazelcast.internal.nio.tcp.ClientViewUnifiedEndpointManager}
+     * {@link ClientViewUnifiedEndpoint}
      * {@link com.hazelcast.instance.ProtocolType#REST} -&gt;
-     * {@link com.hazelcast.internal.nio.tcp.TextViewUnifiedEndpointManager}
+     * {@link TextViewUnifiedEndpoint}
      * {@link com.hazelcast.instance.ProtocolType#MEMCACHE} -&gt;
-     * {@link com.hazelcast.internal.nio.tcp.TextViewUnifiedEndpointManager}
+     * {@link TextViewUnifiedEndpoint}
      */
-    EndpointManager<T> getEndpointManager(EndpointQualifier qualifier);
+    Endpoint<T> getEndpoint(EndpointQualifier qualifier);
 
     /**
      * Global scheduler for all Endpoints responsible of message retransmission

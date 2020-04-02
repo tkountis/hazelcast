@@ -366,7 +366,7 @@ class TestClientRegistry {
 
         private void register() {
             Node node = remoteNodeEngine.getNode();
-            node.getEndpointManager(CLIENT).registerConnection(getEndPoint(), this);
+            node.getEndpointManager(CLIENT).registerConnection(getRemoteAddress(), this);
         }
 
         @Override
@@ -412,8 +412,8 @@ class TestClientRegistry {
             if (connectionId != that.connectionId) {
                 return false;
             }
-            Address remoteEndpoint = getEndPoint();
-            return !(remoteEndpoint != null ? !remoteEndpoint.equals(that.getEndPoint()) : that.getEndPoint() != null);
+            Address remoteEndpoint = getRemoteAddress();
+            return !(remoteEndpoint != null ? !remoteEndpoint.equals(that.getRemoteAddress()) : that.getRemoteAddress() != null);
         }
 
         @Override
@@ -430,7 +430,7 @@ class TestClientRegistry {
         @Override
         public int hashCode() {
             int result = connectionId;
-            Address remoteEndpoint = getEndPoint();
+            Address remoteEndpoint = getRemoteAddress();
             result = 31 * result + (remoteEndpoint != null ? remoteEndpoint.hashCode() : 0);
             return result;
         }
@@ -453,7 +453,7 @@ class TestClientRegistry {
         @Override
         public String toString() {
             return "MockedNodeConnection{"
-                    + " remoteEndpoint = " + getEndPoint()
+                    + " remoteEndpoint = " + getRemoteAddress()
                     + ", localEndpoint = " + localEndpoint
                     + ", connectionId = " + connectionId
                     + '}';

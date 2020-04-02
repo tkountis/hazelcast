@@ -238,7 +238,7 @@ public abstract class SplitBrainTestSupport extends HazelcastTestSupport {
                 // block communication from these instances to the new address
                 FirewallingNetworkingService networkingService = getFireWalledNetworkingService(hz);
                 FirewallingNetworkingService.FirewallingEndpointManager endpointManager =
-                        (FirewallingNetworkingService.FirewallingEndpointManager) networkingService.getEndpointManager(MEMBER);
+                        (FirewallingNetworkingService.FirewallingEndpointManager) networkingService.getEndpoint(MEMBER);
                 endpointManager.blockNewConnection(newMemberAddress);
                 endpointManager.closeActiveConnection(newMemberAddress);
             }
@@ -324,7 +324,7 @@ public abstract class SplitBrainTestSupport extends HazelcastTestSupport {
     private static FirewallingNetworkingService.FirewallingEndpointManager getFireWalledEndpointManager(HazelcastInstance hz) {
         Node node = Accessors.getNode(hz);
         return (FirewallingNetworkingService.FirewallingEndpointManager)
-                node.getNetworkingService().getEndpointManager(MEMBER);
+                node.getNetworkingService().getEndpoint(MEMBER);
     }
 
     protected Brains getBrains() {

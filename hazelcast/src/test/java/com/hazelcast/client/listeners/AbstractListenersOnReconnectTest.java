@@ -343,7 +343,7 @@ public abstract class AbstractListenersOnReconnectTest extends ClientTestSupport
                 for (Connection registeredSubscriber : registrations.keySet()) {
                     boolean contains = false;
                     for (Member member : members) {
-                        contains |= registeredSubscriber.getEndPoint().equals(member.getAddress());
+                        contains |= registeredSubscriber.getRemoteAddress().equals(member.getAddress());
                     }
                     assertTrue("Registered member " + registeredSubscriber + " is not in the cluster member list " + members,
                             contains);

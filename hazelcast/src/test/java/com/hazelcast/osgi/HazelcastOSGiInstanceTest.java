@@ -18,7 +18,7 @@ package com.hazelcast.osgi;
 
 import com.hazelcast.client.ClientService;
 import com.hazelcast.cluster.Cluster;
-import com.hazelcast.cluster.Endpoint;
+import com.hazelcast.cluster.Peer;
 import com.hazelcast.collection.IList;
 import com.hazelcast.collection.IQueue;
 import com.hazelcast.collection.ISet;
@@ -316,7 +316,7 @@ public class HazelcastOSGiInstanceTest {
 
     @Test
     public void getLocalEndpointCalledSuccessfullyOverOSGiInstance() {
-        Endpoint mockEndpoint = mock(Endpoint.class);
+        Peer mockEndpoint = mock(Peer.class);
         HazelcastInstance mockHazelcastInstance = mock(HazelcastInstance.class);
         HazelcastOSGiInstance hazelcastOSGiInstance = createHazelcastOSGiInstance(mockHazelcastInstance);
 

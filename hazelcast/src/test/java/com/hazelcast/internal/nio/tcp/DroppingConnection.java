@@ -20,7 +20,7 @@ import com.hazelcast.internal.networking.OutboundFrame;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.nio.ConnectionLifecycleListener;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.ConnectionType;
 import com.hazelcast.internal.util.Clock;
 import com.hazelcast.internal.util.ExceptionUtil;
@@ -35,18 +35,18 @@ class DroppingConnection implements Connection {
 
     private final Address endpoint;
     private final long timestamp = Clock.currentTimeMillis();
-    private final EndpointManager connectionManager;
+    private final Endpoint connectionManager;
     private final ConnectionLifecycleListener lifecycleListener;
     private AtomicBoolean isAlive = new AtomicBoolean(true);
 
-    DroppingConnection(ConnectionLifecycleListener lifecycleListener, Address endpoint, EndpointManager connectionManager) {
+    DroppingConnection(ConnectionLifecycleListener lifecycleListener, Address endpoint, Endpoint connectionManager) {
         this.endpoint = endpoint;
         this.connectionManager = connectionManager;
         this.lifecycleListener = lifecycleListener;
     }
 
     @Override
-    public EndpointManager getEndpointManager() {
+    public Endpoint getEndpoint() {
         return connectionManager;
     }
 
@@ -122,7 +122,7 @@ class DroppingConnection implements Connection {
     }
 
     @Override
-    public Address getEndPoint() {
+    public Address getRemoteAddress() {
         return endpoint;
     }
 

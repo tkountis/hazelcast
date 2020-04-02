@@ -52,15 +52,15 @@ public class TcpIpEndpointManager_MemoryLeakTest
     @Test
     public void test() {
         HazelcastInstance hz1 = Hazelcast.newHazelcastInstance();
-        final TcpIpNetworkingService networkingService = (TcpIpNetworkingService) getNode(hz1).getNetworkingService();
+        final NetworkingServiceImpl networkingService = (NetworkingServiceImpl) getNode(hz1).getNetworkingService();
 
         HazelcastInstance hz2 = Hazelcast.newHazelcastInstance();
         hz2.shutdown();
 
         assertClusterSizeEventually(1, hz1);
 
-        final MemberViewUnifiedEndpointManager endpointManager = (MemberViewUnifiedEndpointManager) networkingService
-                .getEndpointManager(EndpointQualifier.MEMBER);
+        final MemberViewUnifiedEndpoint endpointManager = (MemberViewUnifiedEndpoint) networkingService
+                .getEndpoint(EndpointQualifier.MEMBER);
 
         assertTrueAllTheTime(new AssertTask() {
             @Override

@@ -22,7 +22,7 @@ import com.hazelcast.internal.networking.Channel;
 import com.hazelcast.internal.networking.InboundHandler;
 import com.hazelcast.internal.nio.IOService;
 import com.hazelcast.internal.nio.tcp.AbstractChannelInitializer;
-import com.hazelcast.internal.nio.tcp.TcpIpConnection;
+import com.hazelcast.internal.nio.tcp.DefaultConnection;
 import com.hazelcast.internal.nio.tcp.TextHandshakeDecoder;
 
 public class TextChannelInitializer
@@ -37,7 +37,7 @@ public class TextChannelInitializer
 
     @Override
     public void initChannel(Channel channel) {
-        TcpIpConnection connection = (TcpIpConnection) channel.attributeMap().get(TcpIpConnection.class);
+        DefaultConnection connection = (DefaultConnection) channel.attributeMap().get(DefaultConnection.class);
         TextEncoder encoder = new TextEncoder(connection);
 
         InboundHandler decoder = rest

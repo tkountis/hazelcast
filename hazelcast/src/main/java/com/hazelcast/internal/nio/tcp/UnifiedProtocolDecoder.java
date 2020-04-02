@@ -140,7 +140,7 @@ public class UnifiedProtocolDecoder
         channel.options()
                 .setOption(SO_SNDBUF, props.getInteger(SOCKET_RECEIVE_BUFFER_SIZE) * KILO_BYTE);
 
-        TcpIpConnection connection = (TcpIpConnection) channel.attributeMap().get(TcpIpConnection.class);
+        DefaultConnection connection = (DefaultConnection) channel.attributeMap().get(DefaultConnection.class);
         connection.setConnectionType(ConnectionType.MEMBER);
         channel.inboundPipeline().replace(this, ioService.createInboundHandlers(EndpointQualifier.MEMBER, connection));
     }
@@ -151,7 +151,7 @@ public class UnifiedProtocolDecoder
                 // clients dont support direct buffers
                 .setOption(DIRECT_BUF, false);
 
-        TcpIpConnection connection = (TcpIpConnection) channel.attributeMap().get(TcpIpConnection.class);
+        DefaultConnection connection = (DefaultConnection) channel.attributeMap().get(DefaultConnection.class);
         channel.inboundPipeline().replace(this, new ClientMessageDecoder(connection, ioService.getClientEngine(), props));
     }
 
@@ -160,7 +160,7 @@ public class UnifiedProtocolDecoder
 
         config.setOption(SO_RCVBUF, clientRcvBuf());
 
-        TcpIpConnection connection = (TcpIpConnection) channel.attributeMap().get(TcpIpConnection.class);
+        DefaultConnection connection = (DefaultConnection) channel.attributeMap().get(DefaultConnection.class);
 
         TextEncoder encoder = new TextEncoder(connection);
 

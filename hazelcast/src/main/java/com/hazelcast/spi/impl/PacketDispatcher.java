@@ -17,7 +17,7 @@
 package com.hazelcast.spi.impl;
 
 import com.hazelcast.internal.nio.Connection;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.eventservice.EventService;
@@ -74,7 +74,7 @@ public final class PacketDispatcher implements Consumer<Packet> {
                     break;
                 case BIND:
                     Connection connection = packet.getConn();
-                    EndpointManager endpointManager = connection.getEndpointManager();
+                    Endpoint endpointManager = connection.getEndpoint();
                     endpointManager.accept(packet);
                     break;
                 case JET:

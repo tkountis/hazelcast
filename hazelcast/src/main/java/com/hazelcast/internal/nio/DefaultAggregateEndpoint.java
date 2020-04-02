@@ -18,7 +18,7 @@ package com.hazelcast.internal.nio;
 
 import com.hazelcast.instance.EndpointQualifier;
 import com.hazelcast.internal.networking.NetworkStats;
-import com.hazelcast.internal.nio.tcp.TcpIpConnection;
+import com.hazelcast.internal.nio.tcp.DefaultConnection;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -30,20 +30,20 @@ import java.util.concurrent.ConcurrentMap;
 
 import static java.util.Collections.emptyMap;
 
-public class DefaultAggregateEndpointManager
-        implements AggregateEndpointManager {
+public class DefaultAggregateEndpoint
+        implements AggregateEndpoint {
 
-    private final ConcurrentMap<EndpointQualifier, EndpointManager<TcpIpConnection>> endpointManagers;
+    private final ConcurrentMap<EndpointQualifier, Endpoint<DefaultConnection>> endpointManagers;
 
-    public DefaultAggregateEndpointManager(ConcurrentMap<EndpointQualifier, EndpointManager<TcpIpConnection>> endpointManagers) {
+    public DefaultAggregateEndpoint(ConcurrentMap<EndpointQualifier, Endpoint<DefaultConnection>> endpointManagers) {
         this.endpointManagers = endpointManagers;
     }
 
     @Override
-    public Set<TcpIpConnection> getActiveConnections() {
-        Set<TcpIpConnection> connections = null;
-        for (EndpointManager<TcpIpConnection> endpointManager : endpointManagers.values()) {
-            Collection<TcpIpConnection> endpointConnections = endpointManager.getActiveConnections();
+    public Set<DefaultConnection> getActiveConnections() {
+        Set<DefaultConnection> connections = null;
+        for (Endpoint<DefaultConnection> endpointManager : endpointManagers.values()) {
+            Collection<DefaultConnection> endpointConnections = endpointManager.getActiveConnections();
             if (endpointConnections != null && !endpointConnections.isEmpty()) {
                 if (connections == null) {
                     connections = new HashSet<>();
@@ -57,11 +57,11 @@ public class DefaultAggregateEndpointManager
     }
 
     @Override
-    public Set<TcpIpConnection> getConnections() {
-        Set<TcpIpConnection> connections = null;
+    public Set<DefaultConnection> getConnections() {
+        Set<DefaultConnection> connections = null;
 
-        for (EndpointManager<TcpIpConnection> endpointManager : endpointManagers.values()) {
-            Collection<TcpIpConnection> endpointConnections = endpointManager.getConnections();
+        for (Endpoint<DefaultConnection> endpointManager : endpointManagers.values()) {
+            Collection<DefaultConnection> endpointConnections = endpointManager.getConnections();
             if (endpointConnections != null && !endpointConnections.isEmpty()) {
                 if (connections == null) {
                     connections = new HashSet<>();
@@ -74,13 +74,13 @@ public class DefaultAggregateEndpointManager
         return connections == null ? Collections.emptySet() : connections;
     }
 
-    public EndpointManager<TcpIpConnection> getEndpointManager(EndpointQualifier qualifier) {
+    public Endpoint<DefaultConnection> getEndpointManager(EndpointQualifier qualifier) {
         return endpointManagers.get(qualifier);
     }
 
     @Override
     public void addConnectionListener(ConnectionListener listener) {
-        for (EndpointManager manager : endpointManagers.values()) {
+        for (Endpoint manager : endpointManagers.values()) {
             manager.addConnectionListener(listener);
         }
     }
@@ -88,7 +88,7 @@ public class DefaultAggregateEndpointManager
     @Override
     public Map<EndpointQualifier, NetworkStats> getNetworkStats() {
         Map<EndpointQualifier, NetworkStats> stats = null;
-        for (Map.Entry<EndpointQualifier, EndpointManager<TcpIpConnection>> entry : endpointManagers.entrySet()) {
+        for (Map.Entry<EndpointQualifier, Endpoint<DefaultConnection>> entry : endpointManagers.entrySet()) {
             if (stats == null) {
                 stats = new HashMap<>();
             }

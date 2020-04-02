@@ -60,17 +60,18 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 /**
  * Contains the logic for accepting TcpIpConnections.
  *
- * The {@link TcpIpAcceptor} and {@link TcpIpConnector} are 2 sides of the same coin. The {@link TcpIpConnector} take care
- * of the 'client' side of a connection and the {@link TcpIpAcceptor} is the 'server' side of a connection (each connection
+ * The {@link Acceptor} and {@link ConnectionFactory} are 2 sides of the same coin. The {@link ConnectionFactory} take care
+ * of the 'client' side of a connection and the {@link Acceptor} is the 'server' side of a connection (each connection
  * has a client and server-side
  */
-public class TcpIpAcceptor implements DynamicMetricsProvider {
+public class Acceptor
+        implements DynamicMetricsProvider {
     private static final long SHUTDOWN_TIMEOUT_MILLIS = SECONDS.toMillis(10);
     private static final long SELECT_TIMEOUT_MILLIS = SECONDS.toMillis(60);
     private static final int SELECT_IDLE_COUNT_THRESHOLD = 10;
 
     private final ServerSocketRegistry registry;
-    private final TcpIpNetworkingService networkingService;
+    private final NetworkingServiceImpl networkingService;
     private final ILogger logger;
     private final IOService ioService;
     @Probe(name = TCP_METRIC_ACCEPTOR_EVENT_COUNT)
@@ -94,7 +95,7 @@ public class TcpIpAcceptor implements DynamicMetricsProvider {
 
     private final Set<SelectionKey> selectionKeys = newSetFromMap(new ConcurrentHashMap<>());
 
-    TcpIpAcceptor(ServerSocketRegistry registry, TcpIpNetworkingService networkingService, IOService ioService) {
+    Acceptor(ServerSocketRegistry registry, NetworkingServiceImpl networkingService, IOService ioService) {
         this.registry = registry;
             this.networkingService = networkingService;
         this.ioService = networkingService.getIoService();
@@ -103,7 +104,7 @@ public class TcpIpAcceptor implements DynamicMetricsProvider {
     }
 
     /**
-     * A probe that measure how long this {@link TcpIpAcceptor} has not received any events.
+     * A probe that measure how long this {@link Acceptor} has not received any events.
      *
      * @return the idle time in ms.
      */
@@ -112,7 +113,7 @@ public class TcpIpAcceptor implements DynamicMetricsProvider {
         return max(currentTimeMillis() - lastSelectTimeMs, 0);
     }
 
-    public TcpIpAcceptor start() {
+    public Acceptor start() {
         acceptorThread.start();
         return this;
     }
@@ -272,10 +273,10 @@ public class TcpIpAcceptor implements DynamicMetricsProvider {
 
         private void acceptSocket(final EndpointQualifier qualifier, ServerSocketChannel serverSocketChannel) {
             Channel channel = null;
-            TcpIpEndpointManager endpointManager = null;
+            DefaultEndpoint endpointManager = null;
             try {
                 SocketChannel socketChannel = serverSocketChannel.accept();
-                endpointManager = (TcpIpEndpointManager) networkingService.getUnifiedOrDedicatedEndpointManager(qualifier);
+                endpointManager = (DefaultEndpoint) networkingService.getUnifiedOrDedicatedEndpointManager(qualifier);
 
                 if (socketChannel != null) {
                     channel = endpointManager.newChannel(socketChannel, false);
@@ -306,7 +307,7 @@ public class TcpIpAcceptor implements DynamicMetricsProvider {
                     logger.fine("Accepting socket connection from " + theChannel.socket().getRemoteSocketAddress());
                 }
                 if (ioService.isSocketInterceptorEnabled(qualifier)) {
-                    final TcpIpEndpointManager finalEndpointManager = endpointManager;
+                    final DefaultEndpoint finalEndpointManager = endpointManager;
                     ioService.executeAsync(() -> configureAndAssignSocket(finalEndpointManager, theChannel));
                 } else {
                     configureAndAssignSocket(endpointManager, theChannel);
@@ -314,7 +315,7 @@ public class TcpIpAcceptor implements DynamicMetricsProvider {
             }
         }
 
-        private void configureAndAssignSocket(TcpIpEndpointManager endpointManager, Channel channel) {
+        private void configureAndAssignSocket(DefaultEndpoint endpointManager, Channel channel) {
             try {
                 ioService.interceptSocket(endpointManager.getEndpointQualifier(), channel.socket(), true);
                 endpointManager.newConnection(channel, null);

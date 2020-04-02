@@ -17,7 +17,7 @@
 package com.hazelcast.spi.impl.operationservice;
 
 import com.hazelcast.core.IndeterminateOperationStateException;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.partition.InternalPartition;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.serialization.Data;
@@ -71,7 +71,7 @@ public abstract class InvocationBuilder {
     protected long tryPauseMillis = DEFAULT_TRY_PAUSE_MILLIS;
     protected boolean resultDeserialized = DEFAULT_DESERIALIZE_RESULT;
     protected boolean failOnIndeterminateOperationState;
-    protected EndpointManager endpointManager;
+    protected Endpoint endpointManager;
 
     /**
      * Creates an InvocationBuilder
@@ -247,7 +247,7 @@ public abstract class InvocationBuilder {
         return callTimeout;
     }
 
-    public InvocationBuilder setEndpointManager(EndpointManager endpointManager) {
+    public InvocationBuilder setEndpointManager(Endpoint endpointManager) {
         this.endpointManager = endpointManager;
         return this;
     }

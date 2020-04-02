@@ -20,7 +20,7 @@ import com.hazelcast.cardinality.CardinalityEstimator;
 import com.hazelcast.client.Client;
 import com.hazelcast.client.ClientService;
 import com.hazelcast.cluster.Cluster;
-import com.hazelcast.cluster.Endpoint;
+import com.hazelcast.cluster.Peer;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.collection.IList;
 import com.hazelcast.collection.IQueue;
@@ -187,12 +187,12 @@ public interface HazelcastInstance {
      * Returned endpoint will be a {@link Member} instance for cluster nodes
      * and a {@link Client} instance for clients.
      *
-     * @return the local {@link Endpoint} which this HazelcastInstance belongs to
+     * @return the local {@link Peer} which this HazelcastInstance belongs to
      * @see Member
      * @see Client
      */
     @Nonnull
-    Endpoint getLocalEndpoint();
+    Peer getLocalEndpoint();
 
     /**
      * Creates or returns the distributed executor service for the given name.

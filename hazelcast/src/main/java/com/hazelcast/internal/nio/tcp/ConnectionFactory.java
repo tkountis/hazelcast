@@ -39,12 +39,12 @@ import java.util.logging.Level;
  * The TcpIpConnector is responsible to make connections by connecting to a remote serverport. Once completed,
  * it will send the protocol and a bind-message.
  */
-class TcpIpConnector {
+class ConnectionFactory {
 
     private static final int DEFAULT_IPV6_SOCKET_CONNECT_TIMEOUT_SECONDS = 3;
     private static final int MILLIS_PER_SECOND = 1000;
 
-    private final TcpIpEndpointManager endpointManager;
+    private final DefaultEndpoint endpointManager;
 
     private final ILogger logger;
     private final IOService ioService;
@@ -53,7 +53,7 @@ class TcpIpConnector {
     // accessed only in synchronized block
     private final LinkedList<Integer> outboundPorts = new LinkedList<Integer>();
 
-    TcpIpConnector(TcpIpEndpointManager endpointManager) {
+    ConnectionFactory(DefaultEndpoint endpointManager) {
         this.endpointManager = endpointManager;
         this.ioService = endpointManager.getNetworkingService().getIoService();
         this.logger = ioService.getLoggingService().getLogger(getClass());
@@ -167,7 +167,7 @@ class TcpIpConnector {
         private void tryToConnect(InetSocketAddress socketAddress, int timeout) throws Exception {
             SocketChannel socketChannel = SocketChannel.open();
 
-            TcpIpConnection connection = null;
+            DefaultConnection connection = null;
             Channel channel = endpointManager.newChannel(socketChannel, true);
             channel.attributeMap().put(Address.class, address);
             try {

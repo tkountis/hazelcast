@@ -19,7 +19,7 @@ package com.hazelcast.internal.nio.ascii;
 import com.hazelcast.internal.ascii.TextCommand;
 import com.hazelcast.internal.networking.HandlerStatus;
 import com.hazelcast.internal.networking.OutboundHandler;
-import com.hazelcast.internal.nio.tcp.TcpIpConnection;
+import com.hazelcast.internal.nio.tcp.DefaultConnection;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
@@ -33,12 +33,12 @@ import static com.hazelcast.internal.nio.IOUtil.compactOrClear;
 public class TextEncoder extends OutboundHandler<Supplier<TextCommand>, ByteBuffer> {
     public static final String TEXT_ENCODER = "textencoder";
 
-    private final TcpIpConnection connection;
+    private final DefaultConnection connection;
     private final Map<Long, TextCommand> responses = new ConcurrentHashMap<Long, TextCommand>(100);
     private long currentRequestId;
     private TextCommand command;
 
-    public TextEncoder(TcpIpConnection connection) {
+    public TextEncoder(DefaultConnection connection) {
         this.connection = connection;
     }
 

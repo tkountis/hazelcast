@@ -17,7 +17,7 @@
 package com.hazelcast.instance.impl;
 
 import com.hazelcast.client.Client;
-import com.hazelcast.cluster.Endpoint;
+import com.hazelcast.cluster.Peer;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.serialization.SerializationService;
@@ -123,7 +123,7 @@ public final class TestUtil {
             if (instance == null) {
                 continue;
             }
-            Endpoint localEndpoint = instance.getLocalEndpoint();
+            Peer localEndpoint = instance.getLocalEndpoint();
             if (!(localEndpoint instanceof Client)) {
                 //trigger partition table arrangement and wait on members first
                 warmupPartitions(instance);

@@ -331,7 +331,7 @@ public class ClientListenerServiceImpl implements ClientListenerService, StaticM
                 if (subscriber.isAlive()) {
                     successful = false;
                     logger.warning("Deregistration of listener with ID " + userRegistrationId
-                            + " has failed to address " + subscriber.getEndPoint(), e);
+                            + " has failed to address " + subscriber.getRemoteAddress(), e);
                 }
             }
         }

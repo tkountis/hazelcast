@@ -40,10 +40,10 @@ import static com.hazelcast.internal.nio.Packet.FLAG_URGENT;
  */
 public class PacketDecoder extends InboundHandlerWithCounters<ByteBuffer, Consumer<Packet>> {
 
-    protected final TcpIpConnection connection;
+    protected final DefaultConnection connection;
     private final PacketIOHelper packetReader = new PacketIOHelper();
 
-    public PacketDecoder(TcpIpConnection connection, Consumer<Packet> dst) {
+    public PacketDecoder(DefaultConnection connection, Consumer<Packet> dst) {
         this.connection = connection;
         this.dst = dst;
     }

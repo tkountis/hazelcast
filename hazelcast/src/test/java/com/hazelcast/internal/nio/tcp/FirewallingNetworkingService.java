@@ -21,10 +21,10 @@ import com.hazelcast.internal.networking.NetworkStats;
 import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.internal.util.concurrent.ThreadFactoryImpl;
 import com.hazelcast.cluster.Address;
-import com.hazelcast.internal.nio.AggregateEndpointManager;
+import com.hazelcast.internal.nio.AggregateEndpoint;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.nio.ConnectionListener;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.IOService;
 import com.hazelcast.internal.nio.NetworkingService;
 import com.hazelcast.internal.nio.Packet;
@@ -47,7 +47,7 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
- * A {@link EndpointManager} wrapper which adds firewalling capabilities.
+ * A {@link Endpoint} wrapper which adds firewalling capabilities.
  * All methods delegate to the original ConnectionManager.
  */
 public class FirewallingNetworkingService
@@ -59,13 +59,13 @@ public class FirewallingNetworkingService
 
     private final NetworkingService delegate;
     private final Consumer<Packet> packetConsumer;
-    private AtomicReference<EndpointManager> endpointManagerRef = new AtomicReference<EndpointManager>(null);
+    private AtomicReference<Endpoint> endpointManagerRef = new AtomicReference<Endpoint>(null);
 
     @SuppressWarnings("unchecked")
     public FirewallingNetworkingService(NetworkingService delegate, Set<Address> initiallyBlockedAddresses) {
         this.delegate = delegate;
         this.blockedAddresses.addAll(initiallyBlockedAddresses);
-        this.packetConsumer = delegate.getEndpointManager(MEMBER);
+        this.packetConsumer = delegate.getEndpoint(MEMBER);
     }
 
     @Override
@@ -74,8 +74,8 @@ public class FirewallingNetworkingService
     }
 
     @Override
-    public AggregateEndpointManager getAggregateEndpointManager() {
-        final AggregateEndpointManager delegateAggregateEndpointManager = this.delegate.getAggregateEndpointManager();
+    public AggregateEndpoint getAggregateEndpoint() {
+        final AggregateEndpoint delegateAggregateEndpointManager = this.delegate.getAggregateEndpoint();
         return new FirewallingAggregateEndpointManager(delegateAggregateEndpointManager);
     }
 
@@ -85,9 +85,9 @@ public class FirewallingNetworkingService
     }
 
     @Override
-    public EndpointManager getEndpointManager(EndpointQualifier qualifier) {
+    public Endpoint getEndpoint(EndpointQualifier qualifier) {
         if (endpointManagerRef.get() == null) {
-            final EndpointManager delegateEndpointManager = this.delegate.getEndpointManager(MEMBER);
+            final Endpoint delegateEndpointManager = this.delegate.getEndpoint(MEMBER);
             endpointManagerRef.compareAndSet(null, new FirewallingEndpointManager(delegateEndpointManager));
         }
 
@@ -148,9 +148,9 @@ public class FirewallingNetworkingService
         @Override
         public void run() {
             if (connection != null) {
-                delegate.getEndpointManager(MEMBER).transmit(packet, connection);
+                delegate.getEndpoint(MEMBER).transmit(packet, connection);
             } else {
-                delegate.getEndpointManager(MEMBER).transmit(packet, target);
+                delegate.getEndpoint(MEMBER).transmit(packet, target);
             }
         }
     }
@@ -172,11 +172,11 @@ public class FirewallingNetworkingService
     }
 
     public class FirewallingAggregateEndpointManager
-            implements AggregateEndpointManager {
+            implements AggregateEndpoint {
 
-        final AggregateEndpointManager delegate;
+        final AggregateEndpoint delegate;
 
-        FirewallingAggregateEndpointManager(AggregateEndpointManager delegate) {
+        FirewallingAggregateEndpointManager(AggregateEndpoint delegate) {
             this.delegate = delegate;
         }
 
@@ -202,14 +202,14 @@ public class FirewallingNetworkingService
     }
 
     public class FirewallingEndpointManager
-            implements EndpointManager<Connection> {
+            implements Endpoint<Connection> {
 
         private volatile PacketFilter   packetFilter;
         private volatile PacketDelayProps delayProps = new PacketDelayProps(500, 5000);
 
-        final EndpointManager delegate;
+        final Endpoint delegate;
 
-        FirewallingEndpointManager(EndpointManager delegate) {
+        FirewallingEndpointManager(Endpoint delegate) {
             this.delegate = delegate;
         }
 
@@ -275,7 +275,7 @@ public class FirewallingNetworkingService
         @Override
         public boolean transmit(Packet packet, Connection connection) {
             if (connection != null) {
-                PacketFilter.Action action = applyFilter(packet, connection.getEndPoint());
+                PacketFilter.Action action = applyFilter(packet, connection.getRemoteAddress());
                 switch (action) {
                     case DROP:
                         return true;

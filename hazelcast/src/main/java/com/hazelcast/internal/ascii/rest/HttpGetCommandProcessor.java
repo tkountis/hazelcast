@@ -32,8 +32,8 @@ import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
 import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
-import com.hazelcast.internal.nio.AggregateEndpointManager;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.AggregateEndpoint;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.NetworkingService;
 import com.hazelcast.internal.partition.InternalPartitionService;
 import com.hazelcast.internal.util.StringUtil;
@@ -329,8 +329,8 @@ public class HttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand
     private void handleCluster(HttpGetCommand command) {
         Node node = textCommandService.getNode();
         NetworkingService ns = node.getNetworkingService();
-        EndpointManager cem = ns.getEndpointManager(CLIENT);
-        AggregateEndpointManager aem = ns.getAggregateEndpointManager();
+        Endpoint cem = ns.getEndpoint(CLIENT);
+        AggregateEndpoint aem = ns.getAggregateEndpoint();
         ClusterServiceImpl clusterService = node.getClusterService();
         JsonArray membersArray = new JsonArray();
         clusterService.getMembers()

@@ -16,6 +16,7 @@
 
 package com.hazelcast.internal.nio;
 
+import com.hazelcast.config.EndpointConfig;
 import com.hazelcast.internal.networking.NetworkStats;
 import com.hazelcast.cluster.Address;
 
@@ -23,9 +24,12 @@ import java.util.Collection;
 import java.util.function.Consumer;
 
 /**
- * Responsible for managing {@link Connection} objects.
+ * Represents a single Endpoint (aka Server Socket / single protocol) and handles logic according to its {@link EndpointConfig}
+ * - Registering and retrieving {@link Connection}s
+ * - Collecting statistics
+ * - Sends out packets
  */
-public interface EndpointManager<T extends Connection>
+public interface Endpoint<T extends Connection>
         extends ConnectionListenable, Consumer<Packet> {
 
     /**

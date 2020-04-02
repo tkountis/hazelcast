@@ -35,11 +35,11 @@ public class BindRequest {
 
     private final IOService ioService;
 
-    private final TcpIpConnection connection;
+    private final DefaultConnection connection;
     private final Address remoteEndPoint;
     private final boolean reply;
 
-    BindRequest(ILogger logger, IOService ioService, TcpIpConnection connection, Address remoteEndPoint, boolean reply) {
+    BindRequest(ILogger logger, IOService ioService, DefaultConnection connection, Address remoteEndPoint, boolean reply) {
         this.logger = logger;
         this.ioService = ioService;
         this.connection = connection;

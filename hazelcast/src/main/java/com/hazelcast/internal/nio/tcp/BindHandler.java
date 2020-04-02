@@ -36,7 +36,7 @@ import java.util.logging.Level;
 
 final class BindHandler {
 
-    private final TcpIpEndpointManager tcpIpEndpointManager;
+    private final DefaultEndpoint tcpIpEndpointManager;
     private final IOService ioService;
     private final ILogger logger;
     private final boolean spoofingChecks;
@@ -44,7 +44,7 @@ final class BindHandler {
 
     private final Set<ProtocolType> supportedProtocolTypes;
 
-    BindHandler(TcpIpEndpointManager tcpIpEndpointManager, IOService ioService, ILogger logger,
+    BindHandler(DefaultEndpoint tcpIpEndpointManager, IOService ioService, ILogger logger,
                 boolean spoofingChecks, Set<ProtocolType> supportedProtocolTypes) {
         this.tcpIpEndpointManager = tcpIpEndpointManager;
         this.ioService = ioService;
@@ -56,7 +56,7 @@ final class BindHandler {
 
     public void process(Packet packet) {
         Object bind = ioService.getSerializationService().toObject(packet);
-        TcpIpConnection connection = (TcpIpConnection) packet.getConn();
+        DefaultConnection connection = (DefaultConnection) packet.getConn();
         if (connection.setBinding()) {
             BindMessage bindMessage = (BindMessage) bind;
             bind(connection, bindMessage);
@@ -67,7 +67,7 @@ final class BindHandler {
         }
     }
 
-    private synchronized boolean bind(TcpIpConnection connection, BindMessage bindMessage) {
+    private synchronized boolean bind(DefaultConnection connection, BindMessage bindMessage) {
         if (logger.isFinestEnabled()) {
             logger.finest("Binding " + connection + ", complete message is " + bindMessage);
         }
@@ -116,7 +116,7 @@ final class BindHandler {
      * Performs the actual binding (sets the endpoint on the Connection, registers the connection)
      * without any spoofing or other validation checks.
      * When executed on the connection initiator side, the connection is registered on the remote address
-     * with which it was registered in {@link TcpIpEndpointManager#connectionsInProgress},
+     * with which it was registered in {@link DefaultEndpoint#connectionsInProgress},
      * ignoring the {@code remoteEndpoint} argument.
      *
      * @param connection           the connection to bind
@@ -126,7 +126,7 @@ final class BindHandler {
      */
     @SuppressWarnings({"checkstyle:npathcomplexity"})
     @SuppressFBWarnings("RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED")
-    private synchronized boolean bind0(TcpIpConnection connection, Address remoteEndpoint,
+    private synchronized boolean bind0(DefaultConnection connection, Address remoteEndpoint,
                                        Collection<Address> remoteAddressAliases, boolean reply) {
         final Address remoteAddress = new Address(connection.getRemoteSocketAddress());
         if (tcpIpEndpointManager.connectionsInProgress.contains(remoteAddress)) {
@@ -169,7 +169,7 @@ final class BindHandler {
         return returnValue;
     }
 
-    private boolean checkAlreadyConnected(TcpIpConnection connection, Address remoteEndPoint) {
+    private boolean checkAlreadyConnected(DefaultConnection connection, Address remoteEndPoint) {
         final Connection existingConnection = tcpIpEndpointManager.getConnection(remoteEndPoint);
         if (existingConnection != null && existingConnection.isAlive()) {
             if (existingConnection != connection) {

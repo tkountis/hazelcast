@@ -25,7 +25,7 @@ import com.hazelcast.instance.impl.Node;
 import com.hazelcast.instance.impl.TestUtil;
 import com.hazelcast.internal.cluster.ClusterService;
 import com.hazelcast.internal.metrics.MetricsRegistry;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.partition.IPartition;
 import com.hazelcast.internal.partition.IPartitionService;
 import com.hazelcast.internal.partition.InternalPartition;
@@ -73,7 +73,7 @@ public class Accessors {
         return (ClientEngineImpl) getNode(instance).getClientEngine();
     }
 
-    public static EndpointManager getEndpointManager(HazelcastInstance hz) {
+    public static Endpoint getEndpointManager(HazelcastInstance hz) {
         return getNode(hz).getEndpointManager();
     }
 

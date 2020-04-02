@@ -21,7 +21,7 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.nio.ConnectionLifecycleListener;
 import com.hazelcast.internal.nio.ConnectionType;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.internal.nio.PacketIOHelper;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -50,7 +50,7 @@ public class MockConnection implements Connection {
 
     private final Address remoteEndpoint;
 
-    private final EndpointManager endpointManager;
+    private final Endpoint endpointManager;
 
     public MockConnection(Address localEndpoint,
                           Address remoteEndpoint, NodeEngineImpl remoteNodeEngine) {
@@ -58,7 +58,7 @@ public class MockConnection implements Connection {
     }
 
     public MockConnection(ConnectionLifecycleListener lifecycleListener, Address localEndpoint,
-                          Address remoteEndpoint, NodeEngineImpl remoteNodeEngine, EndpointManager localEndpointManager) {
+                          Address remoteEndpoint, NodeEngineImpl remoteNodeEngine, Endpoint localEndpointManager) {
         this.lifecycleListener = lifecycleListener;
         this.localEndpoint = localEndpoint;
         this.remoteEndpoint = remoteEndpoint;
@@ -67,7 +67,7 @@ public class MockConnection implements Connection {
     }
 
     @Override
-    public EndpointManager getEndpointManager() {
+    public Endpoint getEndpoint() {
         return endpointManager;
     }
 
@@ -86,7 +86,7 @@ public class MockConnection implements Connection {
     }
 
     @Override
-    public Address getEndPoint() {
+    public Address getRemoteAddress() {
         return remoteEndpoint;
     }
 

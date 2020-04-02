@@ -22,10 +22,10 @@ import com.hazelcast.instance.TestNodeContext;
 import com.hazelcast.internal.networking.NetworkStats;
 import com.hazelcast.internal.networking.Networking;
 import com.hazelcast.cluster.Address;
-import com.hazelcast.internal.nio.AggregateEndpointManager;
+import com.hazelcast.internal.nio.AggregateEndpoint;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.nio.ConnectionListener;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.IOService;
 import com.hazelcast.internal.nio.NetworkingService;
 import com.hazelcast.internal.nio.Packet;
@@ -77,7 +77,7 @@ public abstract class AbstractOutOfMemoryHandlerTest extends HazelcastTestSuppor
 
         private boolean dummyMode;
 
-        EndpointManager dummy = new EndpointManager() {
+        Endpoint dummy = new Endpoint() {
 
             @Override
             public Set getActiveConnections() {
@@ -145,12 +145,12 @@ public abstract class AbstractOutOfMemoryHandlerTest extends HazelcastTestSuppor
         }
 
         @Override
-        public AggregateEndpointManager getAggregateEndpointManager() {
+        public AggregateEndpoint getAggregateEndpoint() {
             return null;
         }
 
         @Override
-        public EndpointManager getEndpointManager(EndpointQualifier qualifier) {
+        public Endpoint getEndpoint(EndpointQualifier qualifier) {
             return dummy;
         }
 

@@ -17,8 +17,8 @@
 package com.hazelcast.internal.management.dto;
 
 import com.hazelcast.internal.json.JsonObject;
-import com.hazelcast.internal.nio.AggregateEndpointManager;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.AggregateEndpoint;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.NetworkingService;
 import com.hazelcast.json.internal.JsonSerializable;
 
@@ -38,8 +38,8 @@ public class ConnectionManagerDTO implements JsonSerializable {
     }
 
     public ConnectionManagerDTO(NetworkingService ns) {
-        AggregateEndpointManager aggregate = ns.getAggregateEndpointManager();
-        EndpointManager cem = ns.getEndpointManager(CLIENT);
+        AggregateEndpoint aggregate = ns.getAggregateEndpoint();
+        Endpoint cem = ns.getEndpoint(CLIENT);
         this.clientConnectionCount = cem != null ? cem.getActiveConnections().size() : -1;
         this.activeConnectionCount = aggregate.getActiveConnections().size();
         this.connectionCount = aggregate.getConnections().size();

@@ -38,7 +38,7 @@ import com.hazelcast.internal.cluster.ClusterService;
 import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.nio.ConnectionListener;
 import com.hazelcast.internal.nio.ConnectionType;
-import com.hazelcast.internal.nio.tcp.TcpIpConnection;
+import com.hazelcast.internal.nio.tcp.DefaultConnection;
 import com.hazelcast.internal.partition.IPartitionService;
 import com.hazelcast.internal.services.CoreService;
 import com.hazelcast.internal.services.ManagedService;
@@ -291,12 +291,12 @@ public class ClientEngineImpl implements ClientEngine, CoreService,
         endpointManager.registerEndpoint(endpoint);
 
         Connection conn = endpoint.getConnection();
-        if (conn instanceof TcpIpConnection) {
+        if (conn instanceof DefaultConnection) {
             InetSocketAddress socketAddress = conn.getRemoteSocketAddress();
             //socket address can be null if connection closed before bind
             if (socketAddress != null) {
                 Address address = new Address(socketAddress);
-                ((TcpIpConnection) conn).setEndPoint(address);
+                ((DefaultConnection) conn).setEndPoint(address);
             }
         }
 

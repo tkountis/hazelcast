@@ -26,7 +26,7 @@ import com.hazelcast.instance.impl.NodeState;
 import com.hazelcast.internal.cluster.ClusterClock;
 import com.hazelcast.internal.cluster.ClusterService;
 import com.hazelcast.internal.nio.Connection;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.NetworkingService;
 import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.internal.partition.InternalPartitionService;
@@ -175,7 +175,7 @@ public abstract class Invocation<T> extends BaseInvocation implements OperationR
      */
     private int memberListVersion;
 
-    private EndpointManager endpointManager;
+    private Endpoint endpointManager;
 
     /**
      * Shows maximum number of retry counts for this Invocation.
@@ -201,7 +201,7 @@ public abstract class Invocation<T> extends BaseInvocation implements OperationR
                long tryPauseMillis,
                long callTimeoutMillis,
                boolean deserialize,
-               EndpointManager endpointManager) {
+               Endpoint endpointManager) {
         this.context = context;
         this.op = op;
         this.taskDoneCallback = taskDoneCallback;
@@ -609,7 +609,7 @@ public abstract class Invocation<T> extends BaseInvocation implements OperationR
         return "Packet not sent to -> " + targetAddress + " over " + connection;
     }
 
-    private EndpointManager getEndpointManager(EndpointManager endpointManager) {
+    private Endpoint getEndpointManager(Endpoint endpointManager) {
         return endpointManager != null ? endpointManager : context.defaultEndpointManager;
     }
 
@@ -832,7 +832,7 @@ public abstract class Invocation<T> extends BaseInvocation implements OperationR
         final InternalSerializationService serializationService;
         final Address thisAddress;
         final OutboundOperationHandler outboundOperationHandler;
-        final EndpointManager defaultEndpointManager;
+        final Endpoint defaultEndpointManager;
 
         @SuppressWarnings("checkstyle:parameternumber")
         Context(ManagedExecutorService asyncExecutor,
@@ -853,7 +853,7 @@ public abstract class Invocation<T> extends BaseInvocation implements OperationR
                 InternalSerializationService serializationService,
                 Address thisAddress,
                 OutboundOperationHandler outboundOperationHandler,
-                EndpointManager endpointManager) {
+                Endpoint endpointManager) {
             this.asyncExecutor = asyncExecutor;
             this.clusterClock = clusterClock;
             this.clusterService = clusterService;

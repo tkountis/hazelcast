@@ -139,7 +139,7 @@ public class UnifiedProtocolEncoder
         channel.options()
                 .setOption(SO_SNDBUF, props.getInteger(SOCKET_SEND_BUFFER_SIZE) * KILO_BYTE);
 
-        TcpIpConnection connection = (TcpIpConnection) channel.attributeMap().get(TcpIpConnection.class);
+        DefaultConnection connection = (DefaultConnection) channel.attributeMap().get(DefaultConnection.class);
         OutboundHandler[] handlers = ioService.createOutboundHandlers(EndpointQualifier.MEMBER, connection);
         channel.outboundPipeline().replace(this, handlers);
     }

@@ -57,9 +57,9 @@ public abstract class TcpIpConnection_AbstractTest extends HazelcastTestSupport 
     protected Address addressB;
     protected Address addressC;
 
-    protected TcpIpNetworkingService networkingServiceA;
-    protected TcpIpNetworkingService networkingServiceB;
-    protected TcpIpNetworkingService networkingServiceC;
+    protected NetworkingServiceImpl networkingServiceA;
+    protected NetworkingServiceImpl networkingServiceB;
+    protected NetworkingServiceImpl networkingServiceC;
 
     protected MockIOService ioServiceA;
     protected MockIOService ioServiceB;
@@ -116,7 +116,7 @@ public abstract class TcpIpConnection_AbstractTest extends HazelcastTestSupport 
         return new MetricsRegistryImpl(loggingService.getLogger(MetricsRegistryImpl.class), INFO);
     }
 
-    protected TcpIpNetworkingService newNetworkingService(MetricsRegistry metricsRegistry) throws Exception {
+    protected NetworkingServiceImpl newNetworkingService(MetricsRegistry metricsRegistry) throws Exception {
         MockIOService ioService = null;
         while (ioService == null) {
             try {
@@ -131,7 +131,7 @@ public abstract class TcpIpConnection_AbstractTest extends HazelcastTestSupport 
         ServerSocketRegistry registry = new ServerSocketRegistry(singletonMap(MEMBER, ioService.serverSocketChannel), true);
 
         final MockIOService finalIoService = ioService;
-        TcpIpNetworkingService tcpIpNetworkingService = new TcpIpNetworkingService(null,
+        NetworkingServiceImpl tcpIpNetworkingService = new NetworkingServiceImpl(null,
                 ioService,
                 registry,
                 ioService.loggingService,
@@ -143,28 +143,28 @@ public abstract class TcpIpConnection_AbstractTest extends HazelcastTestSupport 
 
     // ====================== support ========================================
 
-    protected TcpIpConnection connect(Address address) {
+    protected DefaultConnection connect(Address address) {
         return connect(networkingServiceA, address);
     }
 
-    protected TcpIpConnection connect(final TcpIpNetworkingService service, final Address address) {
-        service.getEndpointManager(MEMBER).getOrConnect(address);
+    protected DefaultConnection connect(final NetworkingServiceImpl service, final Address address) {
+        service.getEndpoint(MEMBER).getOrConnect(address);
 
-        final AtomicReference<TcpIpConnection> ref = new AtomicReference<>();
+        final AtomicReference<DefaultConnection> ref = new AtomicReference<>();
         assertTrueEventually(() -> {
-            Connection c = service.getEndpointManager(MEMBER).getConnection(address);
+            Connection c = service.getEndpoint(MEMBER).getConnection(address);
             assertNotNull(c);
-            ref.set((TcpIpConnection) c);
+            ref.set((DefaultConnection) c);
         });
 
         return ref.get();
     }
 
-    public static TcpIpConnection getConnection(TcpIpNetworkingService service, SocketAddress localSocketAddress) {
+    public static DefaultConnection getConnection(NetworkingServiceImpl service, SocketAddress localSocketAddress) {
         long startMs = System.currentTimeMillis();
 
         for (; ; ) {
-            for (TcpIpConnection connection : service.getEndpointManager(MEMBER).getActiveConnections()) {
+            for (DefaultConnection connection : service.getEndpoint(MEMBER).getActiveConnections()) {
                 if (connection.getRemoteSocketAddress().equals(localSocketAddress)) {
                     return connection;
                 }

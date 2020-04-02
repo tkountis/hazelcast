@@ -65,7 +65,7 @@ import com.hazelcast.internal.metrics.impl.MetricsConfigHelper;
 import com.hazelcast.internal.networking.ServerSocketRegistry;
 import com.hazelcast.internal.nio.ClassLoaderUtil;
 import com.hazelcast.internal.nio.Connection;
-import com.hazelcast.internal.nio.EndpointManager;
+import com.hazelcast.internal.nio.Endpoint;
 import com.hazelcast.internal.nio.NetworkingService;
 import com.hazelcast.internal.nio.Packet;
 import com.hazelcast.internal.partition.InternalPartitionService;
@@ -687,12 +687,12 @@ public class Node {
         return networkingService;
     }
 
-    public EndpointManager getEndpointManager() {
+    public Endpoint getEndpointManager() {
         return getEndpointManager(MEMBER);
     }
 
-    public <T extends Connection> EndpointManager<T> getEndpointManager(EndpointQualifier qualifier) {
-        return networkingService.getEndpointManager(qualifier);
+    public <T extends Connection> Endpoint<T> getEndpointManager(EndpointQualifier qualifier) {
+        return networkingService.getEndpoint(qualifier);
     }
 
     public ClassLoader getConfigClassLoader() {

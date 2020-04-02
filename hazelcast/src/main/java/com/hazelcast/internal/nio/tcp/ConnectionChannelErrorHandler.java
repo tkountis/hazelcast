@@ -23,11 +23,12 @@ import com.hazelcast.logging.ILogger;
 
 import java.io.EOFException;
 
-public class TcpIpConnectionChannelErrorHandler implements ChannelErrorHandler {
+public class ConnectionChannelErrorHandler
+        implements ChannelErrorHandler {
 
     private final ILogger logger;
 
-    public TcpIpConnectionChannelErrorHandler(ILogger logger) {
+    public ConnectionChannelErrorHandler(ILogger logger) {
         this.logger = logger;
     }
 
@@ -42,7 +43,7 @@ public class TcpIpConnectionChannelErrorHandler implements ChannelErrorHandler {
             // big event and perhaps we should shutdown the whole HZ instance.
             logger.severe(error);
         } else {
-            TcpIpConnection connection = (TcpIpConnection) channel.attributeMap().get(TcpIpConnection.class);
+            DefaultConnection connection = (DefaultConnection) channel.attributeMap().get(DefaultConnection.class);
             if (connection != null) {
                 String closeReason = (error instanceof EOFException)
                         ? "Connection closed by the other side"

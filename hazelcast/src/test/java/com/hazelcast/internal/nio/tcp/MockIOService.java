@@ -368,13 +368,13 @@ public class MockIOService implements IOService {
     }
 
     @Override
-    public InboundHandler[] createInboundHandlers(EndpointQualifier qualifier, final TcpIpConnection connection) {
+    public InboundHandler[] createInboundHandlers(EndpointQualifier qualifier, final DefaultConnection connection) {
         return new InboundHandler[]{new PacketDecoder(connection, new Consumer<Packet>() {
             @Override
             public void accept(Packet packet) {
                 try {
                     if (packet.getPacketType() == BIND) {
-                        connection.getEndpointManager().accept(packet);
+                        connection.getEndpoint().accept(packet);
                     } else {
                         Consumer<Packet> consumer = packetConsumer;
                         if (consumer != null) {
@@ -389,7 +389,7 @@ public class MockIOService implements IOService {
     }
 
     @Override
-    public OutboundHandler[] createOutboundHandlers(EndpointQualifier qualifier, TcpIpConnection connection) {
+    public OutboundHandler[] createOutboundHandlers(EndpointQualifier qualifier, DefaultConnection connection) {
         return new OutboundHandler[]{new PacketEncoder()};
     }
 
